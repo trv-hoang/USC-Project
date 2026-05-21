@@ -620,9 +620,11 @@ Principles:
 
 E2E assertions:
 
-- **Storage Collision E2E:** `SecureLogicV1` vs `VulnerableLogicV2` → report contains `storage-collision-cross-version` with `severity=Critical`, `risk_level=Critical`.
+- **Storage Collision E2E:** `VulnerableLogicV1` vs `VulnerableLogicV2` (the real upgrade pair from `test/1_StorageCollision.t.sol`) → report contains `storage-collision-cross-version` with `severity=Critical`, `risk_level=Critical`. V1 has `[value:uint256@0, owner:address@1]`; V2 inserts `collisionVar:uint256@0` shifting `value` to slot 1 and `owner` to slot 2 → slot-0 collision (value → collisionVar) is Critical via the §9.2 slot-0 + uint256 rule, slot-1 collision (owner → value) is Critical via the §9.2 owner-name rule.
 - **Uninitialized E2E:** `VulnerableLogicV1` vs `SecureLogicV1` → `uninitialized-state` detected in V1; `behavior=Fix Vulnerability`.
-- **Unauthorized Upgrade E2E:** `VulnerableUUPS` vs `SecureUUPS` → access-control finding in V1; `behavior=Fix Vulnerability`.
+- **Unauthorized Upgrade E2E:** `VulnerableUUPS` vs `SecureUUPS` → access-control finding (`missing-upgrade-authorization`) in V1; `behavior=Fix Vulnerability`.
+
+> **Note on OZ-inheriting contracts.** When the V1/V2 pair inherits OpenZeppelin Upgradeable, Slither's `state_variables_ordered` returns the linearized list including inherited constants/storage from `Initializable`, `OwnableUpgradeable`, etc. The MVP does NOT filter these out, so any collision detection on an OZ-inheriting contract may include slots populated by OZ internals (`INITIALIZABLE_STORAGE`, `__self`, `UPGRADE_INTERFACE_VERSION`, etc.). The three local E2E fixtures intentionally use bare contracts (no OZ inheritance for Storage Collision; same OZ inheritance on both sides for Uninitialized & Unauthorized Upgrade) so this MVP limitation doesn't bite. Filtering inherited vars is a deliberate post-MVP improvement for the evaluation phase against mainnet contracts.
 
 ## 14. Build sequence
 
@@ -643,7 +645,7 @@ Total: ~7–10 working days.
 ## 15. Success criteria (recap)
 
 - `forge test` passes all three scenario test suites (existing + new Scenario 3).
-- `eadf run --local-v1 src/secure/SecureLogicV1.sol --local-v2 src/vulnerable/VulnerableLogicV2.sol` completes without crashing and produces `work/<run_id>/stage5_report.json` plus `checklist.md`.
+- `eadf run --local-v1 src/vulnerable/VulnerableLogicV1.sol --local-v2 src/vulnerable/VulnerableLogicV2.sol` completes without crashing and produces `work/<run_id>/stage5_report.json` plus `checklist.md`.
 - The report flags `storage-collision-cross-version` at slot 0 with `severity=Critical` and a matched pair with `confidence > 0.6`.
 - Three E2E pytest tests pass.
 
