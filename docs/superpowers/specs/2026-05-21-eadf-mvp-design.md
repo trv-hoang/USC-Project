@@ -511,6 +511,8 @@ A `data/semantic_tables.toml` file holds F2/F4/F5/F6 lookup data so it can be re
 ### 10.1 Contracts (~120 LOC total, follow existing pattern)
 
 > **OZ v5 note:** `UUPSUpgradeable` is marked `@custom:stateless` in OpenZeppelin v5 and does NOT expose `__UUPSUpgradeable_init()`. All three contracts below omit that call. The `initializer` modifier on `initialize()` still blocks re-initialization through the proxy, so the protection is preserved.
+>
+> **NatSpec convention:** The snippets below show the *core logic* only. Production contracts in `src/` follow the project's full NatSpec style: `@title`, `@notice`, `@dev` headers with numbered `SECURITY FEATURES:` / `VULNERABILITIES:` / `DESIGN NOTES:` blocks; per-function and per-state-variable `@notice`; `{CrossReferenced}` links to companion contracts. See [`src/secure/SecureLogicV1.sol`](../../../src/secure/SecureLogicV1.sol) and the in-tree commits of `VulnerableUUPS.sol` / `SecureUUPS.sol` / `MaliciousImpl.sol` for fully-annotated examples.
 
 `src/vulnerable/VulnerableUUPS.sol`:
 
