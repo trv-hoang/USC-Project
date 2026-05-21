@@ -357,6 +357,7 @@ Directory tree plus `metadata.json`:
 |---|---|---|---|
 | `storage-collision-cross-version` | from §9.2 heuristic | Each entry in `stage2_slot_diff.json.collisions` | Stock Slither has no cross-version slot check; this is the spec's core static-analysis novelty. |
 | `missing-upgrade-authorization` | `High` | A `FunctionDefinition` named `_authorizeUpgrade(address)` whose `modifiers` list contains none of `{onlyOwner, onlyRole, onlyAdmin, onlyGovernor}` and whose body is empty or only forwards to `super.*`. | Closes the access-control gap for Scenario 3 (Unauthorized Upgrade); none of the 7 stock Slither detectors flag this. Detected by AST inspection on each version separately. Implementation: `module3_vuln_detector/unauthorized_upgrade_detector.py`. |
+| `missing-disable-initializers` | `High` | A contract that defines an `initialize`-style function (modifier `initializer` or `reinitializer(...)`) but has no constructor calling `_disableInitializers()`. | Closes the initialisation-takeover gap for Scenario 2 (Uninitialized Implementation); Slither's stock `uninitialized-state` detector looks for unwritten state variables, not for missing `_disableInitializers` in upgradeable-contract constructors. Detected by AST inspection on each version separately. Implementation: `module3_vuln_detector/disable_initializers_detector.py`. |
 
 ### 8.4 Stage 4 — `stage4_matched_pairs.json`
 
