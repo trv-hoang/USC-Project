@@ -333,6 +333,13 @@ Directory tree plus `metadata.json`:
 - `id` — assigned in emission order as `v{NNN}` independently per version (`v1` list and `v2` list each start at `v001`). Stable across runs given identical Stage 2 input, so Stage 4 can cache and re-reference these ids safely. Stage 4 uses them in `unmatched_vulns` and `pairs[].vuln_id`. Module 4 only matches against `v2` findings (post-upgrade surface), per `SPEC.md` §5.5.
 - `location.function_name` is populated when Slither attributes the finding to a specific function (used by `S_semantic.F1`). For findings without a function context (e.g. `storage-collision-cross-version` on a top-level state variable), it is `null`.
 
+**Custom cross-version detectors emitted by Module 3** (in addition to the 7 stock Slither detectors from `SPEC.md` §5.4):
+
+| `detector_id` | Severity | Trigger | Why it exists |
+|---|---|---|---|
+| `storage-collision-cross-version` | from §9.2 heuristic | Each entry in `stage2_slot_diff.json.collisions` | Stock Slither has no cross-version slot check; this is the spec's core static-analysis novelty. |
+| `missing-upgrade-authorization` | `High` | A `FunctionDefinition` named `_authorizeUpgrade(address)` whose `modifiers` list contains none of `{onlyOwner, onlyRole, onlyAdmin, onlyGovernor}` and whose body is empty or only forwards to `super.*`. | Closes the access-control gap for Scenario 3 (Unauthorized Upgrade); none of the 7 stock Slither detectors flag this. Detected by AST inspection on each version separately. Implementation: `module3_vuln_detector/unauthorized_upgrade_detector.py`. |
+
 ### 8.4 Stage 4 — `stage4_matched_pairs.json`
 
 ```json
@@ -434,11 +441,12 @@ Weights and threshold live in `config.py` and are overridable via `--config <tom
 def calc_slot_score(change, vuln, slot_diff):
     if vuln.detector_id != "storage-collision-cross-version":
         return 0.0
-    # INSERT shifts every subsequent slot, so any collision at or below the
-    # insertion point counts. This is asymmetric with the UPDATE/MOVE branch
-    # below, which uses the exact-overlap helper — do not normalise to
-    # overlaps_collision or the semantics change silently.
-    if change.op == "INSERT" and any(c.slot <= change.first_affected_slot
+    # INSERT at slot N shifts every variable that was at slots >= N in V1 to
+    # slot+1 in V2; diff_slot_maps reports those mismatches at slots N, N+1, ...
+    # So a collision at any slot >= N is attributable to this INSERT. Asymmetric
+    # with the UPDATE/MOVE branch below (which uses exact-overlap) — do not
+    # normalise to overlaps_collision or the semantics change silently.
+    if change.op == "INSERT" and any(c.slot >= change.first_affected_slot
                                      for c in slot_diff.collisions):
         return 1.0
     if change.op in {"UPDATE", "MOVE"} and overlaps_collision(change, slot_diff):
@@ -584,7 +592,7 @@ Spec-approved order; full implementation steps are deferred to the implementatio
 2. `eadf/` skeleton — pyproject, CLI stub, `workdir.py`, `models.py`, `config.py` (~½ day)
 3. Module 1 — `SourceProvider` + `LocalSource` (Etherscan deferred to step 9) (~½ day)
 4. Module 2 — Slither AST extraction + `SimpleASTDiffer` + `slot_mapper` (★) (~1–2 days)
-5. Module 3 — `slither_runner` + `storage_collision_detector` + `behavior_classifier` (~1 day)
+5. Module 3 — `slither_runner` + `storage_collision_detector` + `unauthorized_upgrade_detector` + `behavior_classifier` (~1 day)
 6. Module 4 — 5 sub-scorers, `slot_scorer` first (★) (~1–2 days)
 7. Module 5 — `json_reporter` + `risk_classifier` + `checklist_generator` (~½ day)
 8. E2E tests on three scenarios passing (~½ day)
