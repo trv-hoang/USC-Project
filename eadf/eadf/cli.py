@@ -204,13 +204,104 @@ def _v2_line_lookup(wd) -> dict[str, int]:
             out[c["node_name"]] = c["v2_location"]["line"]
     return out
 
+
+def _change_from_dict(d) -> "Change":
+    from .models import Change, Location
+    def _loc(x): return Location(**x) if x else None
+    return Change(
+        id=d["id"], op=d["op"], node_kind=d["node_kind"],
+        node_name=d["node_name"], node_signature=d["node_signature"],
+        v1_location=_loc(d.get("v1_location")), v2_location=_loc(d.get("v2_location")),
+        first_affected_slot=d.get("first_affected_slot"),
+        extra=d.get("extra", {}),
+    )
+
+
+def _finding_from_dict(d) -> "Finding":
+    from .models import Finding, Location
+    return Finding(
+        id=d["id"], detector_id=d["detector_id"], severity=d["severity"],
+        location=Location(**d["location"]), description=d.get("description", ""),
+        extra=d.get("extra", {}),
+    )
+
+
+def _matched_pair_to_dict(p) -> dict:
+    from dataclasses import asdict
+    return asdict(p)
+
+
 @app.command("match")
 def match_cmd(
     run_id: str = typer.Option(..., "--run-id"),
     config: Path = typer.Option(None, "--config"),
 ):
     """Stage 4 — Match changes to vulnerabilities."""
-    raise NotImplementedError("wired in Phase 6")
+    import os, json
+    from .config import WEIGHTS, CONFIDENCE_THRESHOLD
+    from .workdir import WorkDir
+    from .models import (
+        ASTDiffSet, Change, Location, SlotDiff, SlotCollision, SlotEntry,
+        Finding,
+    )
+    from .module4_matcher.confidence_scorer import match as compute_matches
+
+    root = Path(os.environ.get("EADF_WORK_ROOT", "work"))
+    wd = WorkDir(root=root, run_id=run_id)
+
+    # Precondition checks
+    ast_diff_path = wd.stage_path(2, "ast_diff.json")
+    slot_diff_path = wd.stage_path(2, "slot_diff.json")
+    vuln_path = wd.stage_path(3, "vulnerabilities.json")
+    for p, prev_cmd in [
+        (ast_diff_path, "diff"), (slot_diff_path, "diff"), (vuln_path, "detect"),
+    ]:
+        if not p.exists():
+            typer.echo(f"Missing {p}. Run 'eadf {prev_cmd} --run-id {run_id}' first.", err=True)
+            raise typer.Exit(code=1)
+
+    # Reconstruct dataclasses from JSON
+    ast_diff_raw = json.loads(ast_diff_path.read_text())
+    ast_diff = ASTDiffSet(
+        changes=[_change_from_dict(c) for c in ast_diff_raw["changes"]],
+        summary=ast_diff_raw.get("summary", {}),
+    )
+
+    slot_diff_raw = json.loads(slot_diff_path.read_text())
+    slot_diff = SlotDiff(
+        v1_slots={int(k): SlotEntry(**v) for k, v in slot_diff_raw["v1_slots"].items()},
+        v2_slots={int(k): SlotEntry(**v) for k, v in slot_diff_raw["v2_slots"].items()},
+        collisions=[SlotCollision(**c) for c in slot_diff_raw.get("collisions", [])],
+        packed_slots_present=slot_diff_raw.get("packed_slots_present", False),
+    )
+
+    vuln_raw = json.loads(vuln_path.read_text())
+    v2_findings = [_finding_from_dict(f) for f in vuln_raw.get("v2", [])]
+
+    # Load V2 source text for context-window keyword scoring
+    v2_source_lines: list[str] = []
+    stage1 = wd.stage_dir(1)
+    v2_files = list((stage1 / "v2").glob("*.sol"))
+    if v2_files:
+        v2_source_lines = v2_files[0].read_text().splitlines()
+
+    pairs = compute_matches(ast_diff, v2_findings, slot_diff, v2_source_lines,
+                            threshold=CONFIDENCE_THRESHOLD)
+
+    matched_change_ids = {p.change_id for p in pairs}
+    matched_vuln_ids = {p.vuln_id for p in pairs}
+    unmatched_changes = [c.id for c in ast_diff.changes if c.id not in matched_change_ids]
+    unmatched_vulns = [f.id for f in v2_findings if f.id not in matched_vuln_ids]
+
+    payload = {
+        "threshold": CONFIDENCE_THRESHOLD,
+        "weights": dict(WEIGHTS),
+        "pairs": [_matched_pair_to_dict(p) for p in pairs],
+        "unmatched_changes": unmatched_changes,
+        "unmatched_vulns": unmatched_vulns,
+    }
+    wd.write_json(wd.stage_path(4, "matched_pairs.json"), payload)
+    typer.echo(f"Stage 4 complete: {wd.stage_path(4, 'matched_pairs.json')}")
 
 @app.command()
 def report(run_id: str = typer.Option(..., "--run-id")):
