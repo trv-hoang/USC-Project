@@ -28,7 +28,26 @@ def collect(
     run_id: str = typer.Option(None, "--run-id"),
 ):
     """Stage 1 — Fetch sources (local or Etherscan)."""
-    raise NotImplementedError("wired in Phase 3")
+    import os
+    from .workdir import WorkDir
+    from .module1_collector.local_source import LocalSource
+
+    root = Path(os.environ.get("EADF_WORK_ROOT", "work"))
+    wd = WorkDir(root=root, run_id=run_id)
+    wd.ensure()
+    stage1 = wd.stage_dir(1)
+    stage1.mkdir(parents=True, exist_ok=True)
+
+    if local_v1 and local_v2:
+        provider = LocalSource(v1_path=local_v1, v2_path=local_v2)
+    elif proxy:
+        raise typer.Exit(code=2)  # Etherscan path lands in Phase 9
+    else:
+        typer.echo("Provide either --proxy or both --local-v1 and --local-v2", err=True)
+        raise typer.Exit(code=2)
+
+    provider.fetch(stage1)
+    typer.echo(f"Stage 1 complete: {stage1}")
 
 @app.command()
 def diff(run_id: str = typer.Option(..., "--run-id")):
