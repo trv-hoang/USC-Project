@@ -5,8 +5,9 @@ out/
 # Broadcast logs (deployment artifacts)
 broadcast/
 
-# Docs
-docs/
+# Docs: ignore generated docs, but track design specs under docs/superpowers/
+docs/*
+!docs/superpowers/
 
 # Dotenv file
 .env
