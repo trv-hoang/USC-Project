@@ -67,7 +67,13 @@ def collect(
     if local_v1 and local_v2:
         provider = LocalSource(v1_path=local_v1, v2_path=local_v2)
     elif proxy:
-        raise typer.Exit(code=2)  # Etherscan path lands in Phase 9
+        import os as _os
+        from .module1_collector.etherscan_source import EtherscanSource
+        api_key = _os.environ.get("ETHERSCAN_API_KEY", "")
+        if not api_key:
+            typer.echo("ETHERSCAN_API_KEY env var required when using --proxy", err=True)
+            raise typer.Exit(code=2)
+        provider = EtherscanSource(proxy_address=proxy, api_key=api_key)
     else:
         typer.echo("Provide either --proxy or both --local-v1 and --local-v2", err=True)
         raise typer.Exit(code=2)
