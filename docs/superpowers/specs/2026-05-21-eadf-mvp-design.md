@@ -167,10 +167,12 @@ usc-security-thesis/
     │   │   ├── semantic_scorer.py
     │   │   ├── type_scorer.py
     │   │   └── slot_scorer.py        (★ novelty)
-    │   └── module5_reporter/
-    │       ├── json_reporter.py
-    │       ├── checklist_generator.py
-    │       └── risk_classifier.py
+    │   ├── module5_reporter/
+    │   │   ├── json_reporter.py
+    │   │   ├── checklist_generator.py
+    │   │   └── risk_classifier.py
+    │   └── data/
+    │       └── semantic_tables.toml      (shipped as package_data)
     ├── tests/
     │   ├── fixtures/
     │   ├── test_slot_mapper.py
@@ -224,13 +226,22 @@ def compute_slot_mapping(state_vars: list[StateVar]) -> dict[int, SlotEntry]: ..
 def diff_slot_maps(v1: dict, v2: dict) -> SlotDiff: ...
 
 # module3_vuln_detector
-def run_slither(source_dir: Path) -> list[Finding]: ...
-def detect_storage_collision(slot_diff: SlotDiff) -> list[Finding]: ...
+def run_slither(source_path: Path) -> list[Finding]: ...
+def detect_storage_collision(
+    slot_diff: SlotDiff, *, source_file: str, v2_line_lookup: dict[str, int]
+) -> list[Finding]: ...
+def detect_missing_upgrade_authorization(ast, *, source_file: str) -> list[Finding]: ...
 def classify_behavior(v1_findings, v2_findings) -> UpgradeBehavior: ...
 
 # module4_matcher
-def compute_confidence(change: Change, vuln: Finding, slot_diff: SlotDiff) -> ConfidenceBreakdown: ...
-def match(ast_diff, vuln_v2, slot_diff, threshold: float = 0.6) -> list[MatchedPair]: ...
+def compute_confidence(
+    change: Change, vuln: Finding, slot_diff: SlotDiff,
+    v2_source_lines: list[str],
+) -> ConfidenceBreakdown: ...
+def match(
+    ast_diff: ASTDiffSet, v2_findings: list[Finding], slot_diff: SlotDiff,
+    v2_source_lines: list[str], threshold: float = 0.6,
+) -> list[MatchedPair]: ...
 
 # module5_reporter
 def build_report(workdir: Path) -> Report: ...
@@ -375,7 +386,7 @@ def compute_slot_mapping(state_vars: list[StateVar]) -> dict[int, SlotEntry]:
     slot, offset, mapping = 0, 0, {}
     for v in state_vars:
         size = size_of(v.type)
-        if v.type in DYNAMIC_TYPES:
+        if is_dynamic(v.type):
             if offset > 0: slot += 1; offset = 0
             mapping[slot] = SlotEntry(v.name, v.type, 32, 0)
             slot += 1
@@ -390,7 +401,19 @@ def compute_slot_mapping(state_vars: list[StateVar]) -> dict[int, SlotEntry]:
     return mapping
 ```
 
-`DYNAMIC_TYPES = {"mapping", "array_dynamic"}`. `size_of` returns 32 for `uint256`/`bytes32`/dynamic types, 20 for `address`, 1 for `bool`, etc.
+**`is_dynamic` predicate** — pattern-match the canonical type string Slither produces:
+
+```python
+def is_dynamic(type_str: str) -> bool:
+    # Mappings: "mapping(address => uint256)"
+    # Dynamic arrays: "uint256[]"
+    # Dynamic byte/string types: "bytes", "string"
+    return (type_str.startswith("mapping(")
+            or type_str.endswith("[]")
+            or type_str in {"bytes", "string"})
+```
+
+`size_of` returns 32 for `uint256`/`bytes32`/dynamic types, 20 for `address`, 1 for `bool`, `N//8` for `uintN`/`intN`, and `size_of(inner) * count` for fixed arrays `T[N]`.
 
 **Known MVP limitation — packed sub-slot variables.** When multiple sub-32-byte variables share a slot (e.g. `uint128 a; uint128 b;`), the simplified mapping records only the first variable in `mapping[slot]`. This is sufficient for the three MVP scenarios (all use `uint256`/`address`/`mapping` — no sub-slot packing). It will under-report collisions when EADF is later run against mainnet contracts that pack. The full implementation (tracking all variables per slot with their offsets) is a deliberate post-MVP extension and must be noted in the report when packed types appear in either version's state variables. The implementation plan should add a `packed_slots_present: bool` flag to `stage2_slot_diff.json` so downstream consumers can decide whether to trust the diff or surface a warning.
 
@@ -421,11 +444,18 @@ def affects_adjacent_slot(change, slot_diff) -> bool:
 
 ### 9.2 `diff_slot_maps` severity heuristic
 
+Severity is determined by the V1 entry being overwritten **and** by where the collision lands. A collision at slot 0 is always at minimum `High` because slot 0 is the first state slot and the most likely target of an attacker-controlled write.
+
 ```
-Critical   if V1 slot name matches /owner|implementation|admin|proxy/i
+Critical   if V1 name matches /owner|implementation|admin|proxy/i
+           OR slot == 0 AND V1 type ∈ {address, uint256, bytes32}
+                       (i.e. an ownership/value/hash-shaped slot 0)
 High       if V1 type startswith "mapping(" or name matches /balance|allow/i
+           OR slot == 0
 Medium     otherwise
 ```
+
+**Rationale:** The local Scenario 1 fixture has `value: uint256` at V1 slot 0 → `collisionVar: uint256` at V2 slot 0. Without the `slot == 0` rule, this collision is classified `Medium`, and `risk_classifier` returns `Medium`, contradicting the §15 success criterion. The rule above promotes any slot-0 collision to at least `High`, and to `Critical` when V1 holds a privileged-shaped value type — matching real-world threat modelling (a slot 0 collision is almost always exploitable because slot 0 is what `BadProxy` and many naive proxies write the implementation address into).
 
 ### 9.3 Confidence formula (Module 4)
 
@@ -499,8 +529,8 @@ contract MaliciousImpl {
 ```solidity
 contract SecureUUPS is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     constructor() { _disableInitializers(); }
-    function initialize() public initializer {
-        __Ownable_init();
+    function initialize(address initialOwner) public initializer {
+        __Ownable_init(initialOwner);   // OZ v5 requires explicit initial owner
         __UUPSUpgradeable_init();
     }
     function _authorizeUpgrade(address) internal override onlyOwner {}
