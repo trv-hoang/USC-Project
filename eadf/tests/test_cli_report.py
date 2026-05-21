@@ -32,7 +32,8 @@ def test_report_pipeline_storage_collision(tmp_path, monkeypatch):
 
     report = json.loads(report_path.read_text())
     assert report["risk_level"] == "Critical"
-    assert report["upgrade_behavior"] == "Introduce Vulnerability"
+    # Both V1 and V2 carry missing-disable-initializers, so behavior is Invalid Upgrade.
+    assert report["upgrade_behavior"] == "Invalid Upgrade"
     assert report["storage_collision"]["detected"] is True
     assert report["storage_collision"]["severity"] == "Critical"
 

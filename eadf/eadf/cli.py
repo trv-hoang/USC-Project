@@ -137,6 +137,7 @@ def detect(run_id: str = typer.Option(..., "--run-id")):
     from .module3_vuln_detector.slither_runner import run_slither
     from .module3_vuln_detector.storage_collision_detector import detect_storage_collision
     from .module3_vuln_detector.unauthorized_upgrade_detector import detect_missing_upgrade_authorization
+    from .module3_vuln_detector.disable_initializers_detector import detect_missing_disable_initializers
     from .module3_vuln_detector.behavior_classifier import classify_behavior
 
     root = Path(os.environ.get("EADF_WORK_ROOT", "work"))
@@ -178,6 +179,10 @@ def detect(run_id: str = typer.Option(..., "--run-id")):
     # Custom detector: missing-upgrade-authorization (per-version AST inspection)
     v1_findings.extend(detect_missing_upgrade_authorization(build_ast(v1_src), source_file=v1_src.name))
     v2_findings.extend(detect_missing_upgrade_authorization(build_ast(v2_src), source_file=v2_src.name))
+
+    # Custom detector: missing-disable-initializers (per-version AST inspection)
+    v1_findings.extend(detect_missing_disable_initializers(build_ast(v1_src), source_file=v1_src.name))
+    v2_findings.extend(detect_missing_disable_initializers(build_ast(v2_src), source_file=v2_src.name))
 
     # Custom detector: storage-collision-cross-version (consumes Stage 2 slot diff)
     slot_diff_raw = json.loads(slot_diff_path.read_text())

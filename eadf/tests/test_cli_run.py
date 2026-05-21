@@ -32,7 +32,8 @@ def test_run_chains_all_stages(tmp_path, monkeypatch):
 
     report = json.loads((base / "stage5_report.json").read_text())
     assert report["risk_level"] == "Critical"
-    assert report["upgrade_behavior"] == "Introduce Vulnerability"
+    # Both V1 and V2 carry missing-disable-initializers, so behavior is Invalid Upgrade.
+    assert report["upgrade_behavior"] == "Invalid Upgrade"
 
 
 def test_run_missing_args_fails_with_clear_error(tmp_path, monkeypatch):
