@@ -306,14 +306,68 @@ def match_cmd(
 @app.command()
 def report(run_id: str = typer.Option(..., "--run-id")):
     """Stage 5 — Render JSON report + Markdown checklist."""
-    raise NotImplementedError("wired in Phase 7")
+    import os
+    from .workdir import WorkDir
+    from .module5_reporter.json_reporter import build_report, dump_report
+    from .module5_reporter.checklist_generator import render_checklist
+
+    root = Path(os.environ.get("EADF_WORK_ROOT", "work"))
+    wd = WorkDir(root=root, run_id=run_id)
+
+    # Preconditions
+    for stage_n, filename in [(4, "matched_pairs.json"), (3, "vulnerabilities.json"), (2, "slot_diff.json")]:
+        p = wd.stage_path(stage_n, filename)
+        if not p.exists():
+            typer.echo(f"Missing {p}. Run earlier stages first.", err=True)
+            raise typer.Exit(code=1)
+
+    rpt = build_report(wd.base)
+    report_path = wd.stage_path(5, "report.json")
+    dump_report(rpt, report_path)
+
+    checklist_md = render_checklist(rpt)
+    checklist_path = wd.base / "checklist.md"
+    checklist_path.write_text(checklist_md)
+
+    typer.echo(f"Stage 5 complete: {report_path}, {checklist_path}")
+
 
 @app.command("list")
 def list_cmd():
-    """List run IDs in work/."""
-    raise NotImplementedError("wired in Phase 8")
+    """List run IDs in the work directory."""
+    import os
+    root = Path(os.environ.get("EADF_WORK_ROOT", "work"))
+    if not root.exists():
+        typer.echo("(no work directory yet)")
+        return
+    run_ids = sorted(p.name for p in root.iterdir() if p.is_dir())
+    if not run_ids:
+        typer.echo("(no runs yet)")
+        return
+    for run_id in run_ids:
+        typer.echo(run_id)
+
 
 @app.command()
 def show(run_id: str):
     """Show summary of a run's report."""
-    raise NotImplementedError("wired in Phase 8")
+    import os
+    import json as _json
+    root = Path(os.environ.get("EADF_WORK_ROOT", "work"))
+    report_path = root / run_id / "stage5_report.json"
+    if not report_path.exists():
+        typer.echo(f"No report found at {report_path}. Run 'eadf report --run-id {run_id}' first.", err=True)
+        raise typer.Exit(code=1)
+    report = _json.loads(report_path.read_text())
+    typer.echo(f"Run: {run_id}")
+    typer.echo(f"  Proxy:             {report.get('proxy_address')}")
+    typer.echo(f"  V1 → V2:           {report.get('impl_v1')} → {report.get('impl_v2')}")
+    typer.echo(f"  Upgrade behavior:  {report.get('upgrade_behavior')}")
+    typer.echo(f"  Risk level:        {report.get('risk_level')}")
+    sc = report.get("storage_collision", {})
+    if sc.get("detected"):
+        typer.echo(f"  Storage collision: {sc.get('severity')} at slot(s) {sc.get('affected_slots')}")
+    pairs = report.get("matched_pairs", [])
+    typer.echo(f"  Matched pairs:     {len(pairs)}")
+    for p in pairs:
+        typer.echo(f"    {p['change_id']} ↔ {p['vuln_id']} conf={p['confidence']}")
