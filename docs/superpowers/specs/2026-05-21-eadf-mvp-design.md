@@ -503,11 +503,13 @@ A `data/semantic_tables.toml` file holds F2/F4/F5/F6 lookup data so it can be re
 
 ### 10.1 Contracts (~120 LOC total, follow existing pattern)
 
+> **OZ v5 note:** `UUPSUpgradeable` is marked `@custom:stateless` in OpenZeppelin v5 and does NOT expose `__UUPSUpgradeable_init()`. All three contracts below omit that call. The `initializer` modifier on `initialize()` still blocks re-initialization through the proxy, so the protection is preserved.
+
 `src/vulnerable/VulnerableUUPS.sol`:
 
 ```solidity
 contract VulnerableUUPS is Initializable, UUPSUpgradeable {
-    function initialize() public initializer { __UUPSUpgradeable_init(); }
+    function initialize() public initializer {}
     // Intentionally missing onlyOwner — anyone can upgrade
     function _authorizeUpgrade(address) internal override {}
 }
@@ -531,7 +533,6 @@ contract SecureUUPS is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     constructor() { _disableInitializers(); }
     function initialize(address initialOwner) public initializer {
         __Ownable_init(initialOwner);   // OZ v5 requires explicit initial owner
-        __UUPSUpgradeable_init();
     }
     function _authorizeUpgrade(address) internal override onlyOwner {}
 }
