@@ -1,0 +1,12 @@
+{
+  "threshold": 0.6,
+  "weights": {"pos": 0.25, "pattern": 0.2, "semantic": 0.25, "type": 0.15, "slot": 0.15},
+  "pairs": [{
+    "change_id": "c001", "vuln_id": "v001",
+    "scores": {"pos": 1.0, "pattern": 0.2, "semantic": 0.85, "type": 1.0, "slot": 1.0},
+    "confidence": 0.8025,
+    "root_cause": "INSERT VarDecl collisionVar shifts subsequent slot layout"
+  }],
+  "unmatched_changes": [],
+  "unmatched_vulns": []
+}

@@ -1,0 +1,11 @@
+{
+  "v1": [],
+  "v2": [
+    {"id": "v001", "detector_id": "storage-collision-cross-version",
+     "severity": "Critical",
+     "location": {"file": "V2.sol", "line": 6, "function_name": null},
+     "description": "Slot 0 holds a privileged-shaped value 'value: uint256'",
+     "extra": {"affected_slots": [0], "v1_variable": "value", "v2_variable": "collisionVar"}}
+  ],
+  "upgrade_behavior": "Introduce Vulnerability"
+}

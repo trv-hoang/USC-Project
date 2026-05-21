@@ -1,0 +1,8 @@
+{
+  "source_type": "local",
+  "v1": {"path_or_address": "/x/V1.sol", "label": "V1", "compiler": "0.8.24"},
+  "v2": {"path_or_address": "/x/V2.sol", "label": "V2", "compiler": "0.8.24"},
+  "fetched_at": "2026-05-21T18:00:00+00:00",
+  "proxy_address": "LOCAL_TEST",
+  "upgrade_block": null
+}
