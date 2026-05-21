@@ -111,6 +111,30 @@ def compute_slot_mapping(state_vars: list[StateVar]) -> dict[int, SlotEntry]:
     return mapping
 
 
+def diff_slot_maps(v1: dict[int, "SlotEntry"], v2: dict[int, "SlotEntry"]) -> "SlotDiff":
+    """Compare two slot mappings and return a SlotDiff with per-slot collisions.
+
+    A collision is recorded whenever the same slot index holds variables with
+    different (name, type) pairs across v1 and v2.  Severity is assigned by
+    classify_severity (design spec §9.2, patched 2026-05-21).
+    """
+    from .slot_mapper_severity import classify_severity
+    from ..models import SlotDiff, SlotCollision
+
+    collisions: list[SlotCollision] = []
+    all_slots = sorted(set(v1.keys()) | set(v2.keys()))
+    for s in all_slots:
+        a, b = v1.get(s), v2.get(s)
+        if a is None or b is None:
+            continue
+        if (a.name, a.type) != (b.name, b.type):
+            sev, reason = classify_severity(a, b, slot=s)
+            collisions.append(SlotCollision(
+                slot=s, v1_var=a.name, v2_var=b.name, severity=sev, reason=reason,
+            ))
+    return SlotDiff(v1_slots=v1, v2_slots=v2, collisions=collisions, packed_slots_present=False)
+
+
 def packed_slots_present(state_vars: list[StateVar]) -> bool:
     """Return True if any storage slot contains more than one variable."""
     slot: int = 0

@@ -69,3 +69,66 @@ def test_size_of_known_elementary():
     assert size_of("bool") == 1
     assert size_of("uint128") == 16
     assert size_of("bytes32") == 32
+
+
+# ---------------------------------------------------------------------------
+# Tests for diff_slot_maps + classify_severity (Task 18)
+# ---------------------------------------------------------------------------
+from eadf.module2_ast_diff.slot_mapper import diff_slot_maps  # noqa: E402
+
+
+def _sv_d(name, t):
+    return StateVar(name=name, type=t, is_dynamic=False, visibility="public")
+
+
+def test_no_collision_when_layouts_match():
+    m1 = compute_slot_mapping([_sv_d("v", "uint256")])
+    m2 = compute_slot_mapping([_sv_d("v", "uint256")])
+    diff = diff_slot_maps(m1, m2)
+    assert diff.collisions == []
+
+
+def test_critical_collision_when_owner_overwritten():
+    m1 = compute_slot_mapping([_sv_d("owner", "address")])
+    m2 = compute_slot_mapping([_sv_d("attacker", "address")])
+    diff = diff_slot_maps(m1, m2)
+    assert len(diff.collisions) == 1
+    assert diff.collisions[0].severity == "Critical"
+    assert diff.collisions[0].slot == 0
+
+
+def test_high_collision_when_balance_overwritten_not_at_slot_0():
+    # balance at slot 1 (after a uint256 at slot 0) — High via name rule, not slot rule
+    m1 = compute_slot_mapping([_sv_d("x", "uint256"), _sv_d("balances", "mapping(address => uint256)")])
+    m2 = compute_slot_mapping([_sv_d("x", "uint256"), _sv_d("config", "mapping(address => uint256)")])
+    diff = diff_slot_maps(m1, m2)
+    coll = next(c for c in diff.collisions if c.slot == 1)
+    assert coll.severity == "High"
+
+
+def test_slot_0_uint256_collision_is_critical():
+    # Patched §9.2: slot 0 + value-shaped type (uint256/address/bytes32) → Critical
+    # This is the local Scenario 1 fixture's exact shape: value:uint256 → collisionVar:uint256
+    m1 = compute_slot_mapping([_sv_d("value", "uint256")])
+    m2 = compute_slot_mapping([_sv_d("collisionVar", "uint256")])
+    diff = diff_slot_maps(m1, m2)
+    assert diff.collisions[0].severity == "Critical"
+    assert diff.collisions[0].slot == 0
+
+
+def test_slot_0_bool_collision_is_high():
+    # Slot 0, but bool isn't in the privileged-shape set {address, uint256, bytes32}
+    # → falls to the High rule (slot == 0 OR mapping/balance/allow names).
+    m1 = compute_slot_mapping([_sv_d("ready", "bool")])
+    m2 = compute_slot_mapping([_sv_d("flag", "bool")])
+    diff = diff_slot_maps(m1, m2)
+    assert diff.collisions[0].severity == "High"
+
+
+def test_medium_collision_for_generic_value_at_non_zero_slot():
+    # uint256 at slot 1 (after uint256 at slot 0), renamed → Medium (no name/type/slot trigger)
+    m1 = compute_slot_mapping([_sv_d("a", "uint256"), _sv_d("counter", "uint256")])
+    m2 = compute_slot_mapping([_sv_d("a", "uint256"), _sv_d("renamedCounter", "uint256")])
+    diff = diff_slot_maps(m1, m2)
+    coll = next(c for c in diff.collisions if c.slot == 1)
+    assert coll.severity == "Medium"
