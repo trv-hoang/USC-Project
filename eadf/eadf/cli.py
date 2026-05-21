@@ -17,8 +17,34 @@ def run(
     run_id: str = typer.Option(None, "--run-id"),
     from_stage: int = typer.Option(1, "--from-stage"),
 ):
-    """Run all five EADF stages."""
-    raise NotImplementedError("wired in Phase 8")
+    """Run all five EADF stages: collect → diff → detect → match → report."""
+    import os
+    from .workdir import WorkDir
+
+    # Validate that we have enough args to run at least collect
+    if from_stage <= 1 and not (proxy or (local_v1 and local_v2)):
+        typer.echo(
+            "Provide either --proxy or both --local-v1 and --local-v2", err=True
+        )
+        raise typer.Exit(code=2)
+
+    # Determine the run_id up front so each stage sees the same one.
+    if run_id is None:
+        wd_tmp = WorkDir(root=Path(os.environ.get("EADF_WORK_ROOT", "work")))
+        run_id = wd_tmp.run_id
+
+    if from_stage <= 1:
+        collect(proxy=proxy, local_v1=local_v1, local_v2=local_v2, run_id=run_id)
+    if from_stage <= 2:
+        diff(run_id=run_id)
+    if from_stage <= 3:
+        detect(run_id=run_id)
+    if from_stage <= 4:
+        match_cmd(run_id=run_id, config=None)
+    if from_stage <= 5:
+        report(run_id=run_id)
+
+    typer.echo(f"Pipeline complete: run_id={run_id}")
 
 @app.command()
 def collect(
