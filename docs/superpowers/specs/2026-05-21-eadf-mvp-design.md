@@ -272,12 +272,19 @@ Directory tree plus `metadata.json`:
       "node_signature": "uint256 collisionVar",
       "v1_location": null,
       "v2_location": {"file": "LogicV2_Bad.sol", "line": 6, "col": 5},
+      "first_affected_slot": 0,
       "extra": {"type": "uint256", "visibility": "public"}
     }
   ],
   "summary": {"insert": 2, "delete": 0, "update": 0}
 }
 ```
+
+**Field semantics:**
+
+- `id` — assigned in emission order as `c{NNN}`; stable across runs given identical AST input.
+- `first_affected_slot` — for `node_kind == "StateVariable"`, this is `v2_slots[node_name].slot` when the variable exists in V2, else `v1_slots[node_name].slot`. For other node kinds it is `null`. Module 4's `S_slot` consumes this field; downstream readers can rely on it being populated whenever a change might trigger a storage collision.
+- `v2_location.line` is the canonical line number consumed by `S_pos` (Module 4). When V1-only (DELETE), `S_pos` uses `v1_location.line`.
 
 `stage2_slot_diff.json` (★ novelty):
 
@@ -296,26 +303,35 @@ Directory tree plus `metadata.json`:
       "severity": "Critical",
       "reason": "user-balance/owner-like variable overwritten"
     }
-  ]
+  ],
+  "packed_slots_present": false
 }
 ```
+
+`packed_slots_present` is `true` when either version contains a slot with multiple variables packed under 32 bytes (see §9.1 Known MVP limitation). When `true`, Module 5's report includes a warning that collision detection may under-report.
 
 ### 8.3 Stage 3 — `stage3_vulnerabilities.json`
 
 ```json
 {
   "v1": [
-    {"detector_id": "uninitialized-state", "severity": "High",
-     "location": {"file": "...", "line": 42}, "description": "..."}
+    {"id": "v001", "detector_id": "uninitialized-state", "severity": "High",
+     "location": {"file": "...", "line": 42, "function_name": "initialize"},
+     "description": "..."}
   ],
   "v2": [
-    {"detector_id": "storage-collision-cross-version", "severity": "Critical",
+    {"id": "v002", "detector_id": "storage-collision-cross-version", "severity": "Critical",
      "affected_slots": [0], "v1_variable": "value", "v2_variable": "collisionVar",
-     "location": {"file": "LogicV2_Bad.sol", "line": 6}}
+     "location": {"file": "LogicV2_Bad.sol", "line": 6, "function_name": null}}
   ],
   "upgrade_behavior": "Introduce Vulnerability"
 }
 ```
+
+**Field semantics:**
+
+- `id` — assigned in emission order as `v{NNN}` independently per version (`v1` list and `v2` list each start at `v001`). Stable across runs given identical Stage 2 input, so Stage 4 can cache and re-reference these ids safely. Stage 4 uses them in `unmatched_vulns` and `pairs[].vuln_id`. Module 4 only matches against `v2` findings (post-upgrade surface), per `SPEC.md` §5.5.
+- `location.function_name` is populated when Slither attributes the finding to a specific function (used by `S_semantic.F1`). For findings without a function context (e.g. `storage-collision-cross-version` on a top-level state variable), it is `null`.
 
 ### 8.4 Stage 4 — `stage4_matched_pairs.json`
 
@@ -369,6 +385,33 @@ def compute_slot_mapping(state_vars: list[StateVar]) -> dict[int, SlotEntry]:
 
 `DYNAMIC_TYPES = {"mapping", "array_dynamic"}`. `size_of` returns 32 for `uint256`/`bytes32`/dynamic types, 20 for `address`, 1 for `bool`, etc.
 
+**Known MVP limitation — packed sub-slot variables.** When multiple sub-32-byte variables share a slot (e.g. `uint128 a; uint128 b;`), the simplified mapping records only the first variable in `mapping[slot]`. This is sufficient for the three MVP scenarios (all use `uint256`/`address`/`mapping` — no sub-slot packing). It will under-report collisions when EADF is later run against mainnet contracts that pack. The full implementation (tracking all variables per slot with their offsets) is a deliberate post-MVP extension and must be noted in the report when packed types appear in either version's state variables. The implementation plan should add a `packed_slots_present: bool` flag to `stage2_slot_diff.json` so downstream consumers can decide whether to trust the diff or surface a warning.
+
+**Mapping a change to a slot (consumed by §9.4):**
+
+```python
+def first_affected_slot(change, v1_slots, v2_slots):
+    if change.node_kind != "StateVariable":
+        return None
+    if change.op in {"INSERT", "UPDATE"} and change.node_name in v2_slots_by_name(v2_slots):
+        return v2_slots_by_name(v2_slots)[change.node_name].slot
+    if change.op == "DELETE" and change.node_name in v1_slots_by_name(v1_slots):
+        return v1_slots_by_name(v1_slots)[change.node_name].slot
+    return None
+```
+
+Helpers used in §9.4:
+
+```python
+def overlaps_collision(change, slot_diff) -> bool:
+    s = change.first_affected_slot
+    return s is not None and any(c.slot == s for c in slot_diff.collisions)
+
+def affects_adjacent_slot(change, slot_diff) -> bool:
+    s = change.first_affected_slot
+    return s is not None and any(abs(c.slot - s) == 1 for c in slot_diff.collisions)
+```
+
 ### 9.2 `diff_slot_maps` severity heuristic
 
 ```
@@ -391,6 +434,10 @@ Weights and threshold live in `config.py` and are overridable via `--config <tom
 def calc_slot_score(change, vuln, slot_diff):
     if vuln.detector_id != "storage-collision-cross-version":
         return 0.0
+    # INSERT shifts every subsequent slot, so any collision at or below the
+    # insertion point counts. This is asymmetric with the UPDATE/MOVE branch
+    # below, which uses the exact-overlap helper — do not normalise to
+    # overlaps_collision or the semantics change silently.
     if change.op == "INSERT" and any(c.slot <= change.first_affected_slot
                                      for c in slot_diff.collisions):
         return 1.0
