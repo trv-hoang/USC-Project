@@ -16,6 +16,10 @@ def detect_missing_upgrade_authorization(ast, source_file: str) -> list[Finding]
     for fn in contract.functions:
         if fn.name != "_authorizeUpgrade":
             continue
+        # Only check the definition that belongs to this contract, not inherited
+        # versions from parent contracts (e.g. UUPSUpgradeable's abstract stub).
+        if fn.contract_declarer != contract:
+            continue
         # Single-param (address newImplementation)
         if len(fn.parameters) != 1:
             continue
