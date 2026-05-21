@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../../src/vulnerable/VulnerableUUPS.sol";
 import "../../src/vulnerable/MaliciousImpl.sol";
-import "../../src/vulnerable/SecureUUPS.sol";
+import "../../src/secure/SecureUUPS.sol";
 
 /**
  * @title UnauthorizedUpgradeDemo

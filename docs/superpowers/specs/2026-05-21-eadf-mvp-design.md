@@ -116,14 +116,21 @@ This spec defines the **MVP** — a thin vertical slice that establishes the ent
 ```
 usc-security-thesis/
 ├── src/
-│   ├── secure/                       (existing)
-│   └── vulnerable/
+│   ├── secure/                       (existing — secure reference implementations)
+│   │   ├── SecureLogicV1.sol         (existing)
+│   │   ├── SecureLogicV2.sol         (existing)
+│   │   ├── SecureProxy.sol           (existing)
+│   │   └── SecureUUPS.sol            ← NEW (secure counterpart for Scenario 3)
+│   └── vulnerable/                   (existing — attack demonstrations)
 │       ├── BadProxy.sol              (existing)
 │       ├── VulnerableLogicV1.sol     (existing)
 │       ├── VulnerableLogicV2.sol     (existing)
-│       ├── VulnerableUUPS.sol        ← NEW
-│       ├── SecureUUPS.sol            ← NEW
-│       └── MaliciousImpl.sol         ← NEW
+│       ├── VulnerableUUPS.sol        ← NEW (Scenario 3 vulnerable)
+│       └── MaliciousImpl.sol         ← NEW (Scenario 3 attacker payload)
+│
+│   Convention: folder is decided by security posture (secure vs vulnerable),
+│   not by which scenario the contract belongs to. The 3 Scenario 3 contracts
+│   span both folders.
 ├── test/
 │   ├── 1_StorageCollision.t.sol      (existing)
 │   ├── 2_Uninitialized.t.sol         (existing)
@@ -526,7 +533,7 @@ contract MaliciousImpl {
 }
 ```
 
-`src/vulnerable/SecureUUPS.sol`:
+`src/secure/SecureUUPS.sol`:
 
 ```solidity
 contract SecureUUPS is Initializable, UUPSUpgradeable, OwnableUpgradeable {

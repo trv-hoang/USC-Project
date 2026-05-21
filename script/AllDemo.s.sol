@@ -8,7 +8,7 @@ import "../src/vulnerable/VulnerableLogicV1.sol";
 import "../src/vulnerable/VulnerableLogicV2.sol";
 import "../src/vulnerable/VulnerableUUPS.sol";
 import "../src/vulnerable/MaliciousImpl.sol";
-import "../src/vulnerable/SecureUUPS.sol";
+import "../src/secure/SecureUUPS.sol";
 import "../src/secure/SecureLogicV1.sol";
 import "../src/secure/SecureLogicV2.sol";
 import "../src/secure/SecureProxy.sol";
