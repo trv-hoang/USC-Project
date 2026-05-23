@@ -30,10 +30,8 @@ contract UnauthorizedUpgradeDemo is Script {
 
         vm.startBroadcast(deployerKey);
         VulnerableUUPS logic = new VulnerableUUPS();
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(logic),
-            abi.encodeWithSelector(VulnerableUUPS.initialize.selector)
-        );
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(logic), abi.encodeWithSelector(VulnerableUUPS.initialize.selector));
         console.log("VulnerableUUPS logic:", address(logic));
         console.log("Proxy:", address(proxy));
         payable(address(proxy)).transfer(1 ether);
@@ -55,10 +53,8 @@ contract UnauthorizedUpgradeDemo is Script {
 
         vm.startBroadcast(deployerKey);
         SecureUUPS secureLogic = new SecureUUPS();
-        ERC1967Proxy secureProxy = new ERC1967Proxy(
-            address(secureLogic),
-            abi.encodeWithSelector(SecureUUPS.initialize.selector, deployer)
-        );
+        ERC1967Proxy secureProxy =
+            new ERC1967Proxy(address(secureLogic), abi.encodeWithSelector(SecureUUPS.initialize.selector, deployer));
         console.log("SecureUUPS logic:", address(secureLogic));
         console.log("SecureProxy:", address(secureProxy));
         vm.stopBroadcast();

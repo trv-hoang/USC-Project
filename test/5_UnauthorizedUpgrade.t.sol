@@ -19,10 +19,8 @@ contract UnauthorizedUpgradeTest is Test {
     function testVulnerable_AnyoneCanUpgrade() public {
         // Deploy V1 logic and proxy; fund proxy with 10 ETH.
         VulnerableUUPS logic = new VulnerableUUPS();
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(logic),
-            abi.encodeWithSelector(VulnerableUUPS.initialize.selector)
-        );
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(logic), abi.encodeWithSelector(VulnerableUUPS.initialize.selector));
         vm.deal(address(proxy), 10 ether);
 
         // Attacker deploys malicious impl and upgrades the proxy (no auth).
@@ -38,10 +36,8 @@ contract UnauthorizedUpgradeTest is Test {
 
     function testSecure_NonOwnerUpgradeReverts() public {
         SecureUUPS logic = new SecureUUPS();
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(logic),
-            abi.encodeWithSelector(SecureUUPS.initialize.selector, alice)
-        );
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(logic), abi.encodeWithSelector(SecureUUPS.initialize.selector, alice));
 
         vm.startPrank(bob);
         MaliciousImpl mal = new MaliciousImpl();
@@ -52,10 +48,8 @@ contract UnauthorizedUpgradeTest is Test {
 
     function testSecure_OwnerCanUpgrade() public {
         SecureUUPS logic = new SecureUUPS();
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(logic),
-            abi.encodeWithSelector(SecureUUPS.initialize.selector, alice)
-        );
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(logic), abi.encodeWithSelector(SecureUUPS.initialize.selector, alice));
 
         vm.startPrank(alice);
         SecureUUPS v2 = new SecureUUPS();

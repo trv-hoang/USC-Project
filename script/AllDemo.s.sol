@@ -146,10 +146,8 @@ contract AllDemo is Script {
         // Setup: deployer deploys VulnerableUUPS behind an ERC1967Proxy and funds it
         vm.startBroadcast(deployerKey);
         VulnerableUUPS logic = new VulnerableUUPS();
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(logic),
-            abi.encodeWithSelector(VulnerableUUPS.initialize.selector)
-        );
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(logic), abi.encodeWithSelector(VulnerableUUPS.initialize.selector));
         console.log("[SETUP] VulnerableUUPS proxy deployed");
         console.log("  Proxy:", address(proxy));
         payable(address(proxy)).transfer(1 ether);
@@ -171,10 +169,8 @@ contract AllDemo is Script {
         vm.startBroadcast(deployerKey);
         address deployer = vm.addr(deployerKey);
         SecureUUPS secureLogic = new SecureUUPS();
-        ERC1967Proxy secureProxy = new ERC1967Proxy(
-            address(secureLogic),
-            abi.encodeWithSelector(SecureUUPS.initialize.selector, deployer)
-        );
+        ERC1967Proxy secureProxy =
+            new ERC1967Proxy(address(secureLogic), abi.encodeWithSelector(SecureUUPS.initialize.selector, deployer));
         console.log("[SECURE] SecureUUPS proxy deployed");
         console.log("  onlyOwner in _authorizeUpgrade blocks unauthorized upgrades");
         console.log("  SecureProxy:", address(secureProxy));
