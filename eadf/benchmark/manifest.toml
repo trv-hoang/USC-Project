@@ -132,3 +132,63 @@ vulns_v1 = ["missing-upgrade-authorization"]
 vulns_v2 = ["missing-upgrade-authorization"]
 proxy_pattern = "UUPS"
 notes = "neither version gates _authorizeUpgrade; cosmetic-only change"
+
+[[pair]]
+id = "SL01"
+name = "introduce unguarded selfdestruct"
+category = "slither_overlap"
+v1 = "slither_overlap/SL01/v1.sol"
+v2 = "slither_overlap/SL01/v2.sol"
+behavior = "Introduce Vulnerability"
+vulns_v1 = []
+vulns_v2 = ["suicidal"]
+proxy_pattern = "Transparent"
+notes = "V2 adds kill() with unguarded selfdestruct (Slither 'suicidal')"
+
+[[pair]]
+id = "SL02"
+name = "introduce controlled delegatecall"
+category = "slither_overlap"
+v1 = "slither_overlap/SL02/v1.sol"
+v2 = "slither_overlap/SL02/v2.sol"
+behavior = "Introduce Vulnerability"
+vulns_v1 = []
+vulns_v2 = ["controlled-delegatecall", "missing-zero-check"]
+proxy_pattern = "Transparent"
+notes = "V2 adds exec() doing delegatecall to a caller-controlled target"
+
+[[pair]]
+id = "SL03"
+name = "remove unguarded selfdestruct (fix)"
+category = "slither_overlap"
+v1 = "slither_overlap/SL03/v1.sol"
+v2 = "slither_overlap/SL03/v2.sol"
+behavior = "Fix Vulnerability"
+vulns_v1 = ["suicidal"]
+vulns_v2 = []
+proxy_pattern = "UUPS"
+notes = "V1 has unguarded selfdestruct; V2 removes it"
+
+[[pair]]
+id = "SM01"
+name = "cosmetic refactor (smooth)"
+category = "smooth"
+v1 = "smooth/SM01/v1.sol"
+v2 = "smooth/SM01/v2.sol"
+behavior = "Smooth Upgrade"
+vulns_v1 = []
+vulns_v2 = []
+proxy_pattern = "UUPS"
+notes = "identical storage layout, rename + compound-assign only"
+
+[[pair]]
+id = "SM02"
+name = "add pure helper (smooth)"
+category = "smooth"
+v1 = "smooth/SM02/v1.sol"
+v2 = "smooth/SM02/v2.sol"
+behavior = "Smooth Upgrade"
+vulns_v1 = []
+vulns_v2 = []
+proxy_pattern = "Transparent"
+notes = "adds a pure helper function, no state or layout change"
