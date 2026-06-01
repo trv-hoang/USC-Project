@@ -11,6 +11,10 @@ This project provides practical demonstrations of:
 3. **Uninitialized Implementation Attack** - How attackers can take over unprotected implementations
 4. **Unauthorized Upgrade Attack** - How a missing access-control modifier on `_authorizeUpgrade` lets anyone hijack a UUPS proxy
 
+### EADF Evaluation Benchmark
+
+The [`eadf/`](eadf/) directory contains EADF (Evolution-Aware Detection Framework), a static analyzer for upgrade regressions. Its `eadf evaluate` command runs the full EADF pipeline and a Slither-only baseline over an offline synthetic benchmark of 18 V1→V2 upgrade pairs ([`eadf/benchmark/`](eadf/benchmark/)). Headline result: **EADF 100% F1 vs. the Slither-only baseline at 34.78% F1** (the baseline misses ~79% of upgrade-specific bugs). See [`eadf/README.md`](eadf/README.md#evaluation) for details.
+
 ### Project Structure
 
 Convention: contracts under `src/secure/` are the "do it right" references; contracts under `src/vulnerable/` are attack demonstrations. Folder is decided by security posture, not by scenario.
