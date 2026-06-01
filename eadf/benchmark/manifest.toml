@@ -1,0 +1,62 @@
+# EADF offline synthetic benchmark — ground-truth manifest (Approach A, no Etherscan).
+# Paths are relative to this file's directory.
+
+[[pair]]
+id = "SC01"
+name = "insert uint256 at slot 0"
+category = "storage_collision"
+v1 = "storage_collision/SC01/v1.sol"
+v2 = "storage_collision/SC01/v2.sol"
+behavior = "Introduce Vulnerability"
+vulns_v1 = []
+vulns_v2 = ["storage-collision-cross-version"]
+proxy_pattern = "UUPS"
+notes = "value:uint256@0 -> collisionVar inserted at slot 0, value shifts to slot 1"
+
+[[pair]]
+id = "SC02"
+name = "insert address before owner"
+category = "storage_collision"
+v1 = "storage_collision/SC02/v1.sol"
+v2 = "storage_collision/SC02/v2.sol"
+behavior = "Introduce Vulnerability"
+vulns_v1 = []
+vulns_v2 = ["storage-collision-cross-version"]
+proxy_pattern = "UUPS"
+notes = "owner:address@0 collides with inserted newAdmin:address@0"
+
+[[pair]]
+id = "SC03"
+name = "change slot-0 type uint256->address"
+category = "storage_collision"
+v1 = "storage_collision/SC03/v1.sol"
+v2 = "storage_collision/SC03/v2.sol"
+behavior = "Introduce Vulnerability"
+vulns_v1 = []
+vulns_v2 = ["storage-collision-cross-version"]
+proxy_pattern = "UUPS"
+notes = "value type narrowed uint256->address at slot 0 (UPDATE)"
+
+[[pair]]
+id = "SC04"
+name = "append var at end (safe)"
+category = "storage_collision"
+v1 = "storage_collision/SC04/v1.sol"
+v2 = "storage_collision/SC04/v2.sol"
+behavior = "Smooth Upgrade"
+vulns_v1 = []
+vulns_v2 = []
+proxy_pattern = "UUPS"
+notes = "negative case: appending extra:uint256 at the end does not collide"
+
+[[pair]]
+id = "SC05"
+name = "remove trailing unused var (safe)"
+category = "storage_collision"
+v1 = "storage_collision/SC05/v1.sol"
+v2 = "storage_collision/SC05/v2.sol"
+behavior = "Smooth Upgrade"
+vulns_v1 = []
+vulns_v2 = []
+proxy_pattern = "UUPS"
+notes = "negative case: removing a trailing variable shrinks layout, no same-slot collision"
