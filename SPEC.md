@@ -804,9 +804,10 @@ contract SecureUUPS is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
 ### 6.5. Dataset Description and EDA
 
-Đánh giá EADF dựa trên hai tập dữ liệu bổ trợ: **Dataset A** (cục bộ, ground truth
-thủ công, dùng làm acceptance gate của MVP) và **Dataset B** (mainnet, quy mô lớn,
-dùng để đo Precision/Recall/F1 ở §7). Tiêu chí thu thập Dataset B xem §7.3.
+Đánh giá EADF dựa trên hai tập dữ liệu bổ trợ: **Dataset A** (3 cặp cục bộ, ground truth
+thủ công, dùng làm acceptance gate của MVP — §6.5.1) và **Dataset B** (benchmark tổng hợp
+ngoại tuyến 18 cặp, dùng để đo Precision/Recall/F1 ở §7 — §6.5.2). Vì không dùng Etherscan
+trong phạm vi đồ án, Dataset B là benchmark tổng hợp thay cho dữ liệu mainnet (xem §7.3).
 
 #### 6.5.1. Dataset A — Local Upgrade Instances (ground truth)
 
@@ -828,65 +829,63 @@ Cột "Hành vi (chủ đích)" là nhãn thiết kế; cột "Detector-level in
 > trong thiết kế secure), không phải false-positive. Bất biến cốt lõi được kiểm chứng là
 > việc đóng đúng lỗ hổng mục tiêu giữa V1 và V2 (cột cuối).
 
-#### 6.5.2. Dataset B — Mainnet Instances (EDA)
+#### 6.5.2. Dataset B — Offline Synthetic Benchmark (EDA)
 
-Các bảng dưới đây là khung phân tích thăm dò (EDA) cho tập mainnet; số liệu sẽ được điền
-sau khi hoàn tất thu thập và gán nhãn (mục tiêu ~200 instance, tiêu chí §7.3).
+Vì không sử dụng Etherscan trong phạm vi đồ án (xem §7.3), Dataset B là một **benchmark
+tổng hợp ngoại tuyến** gồm 18 cặp nâng cấp V1→V2 xây dựng thủ công tại `eadf/benchmark/`,
+mỗi cặp có ground truth chính xác theo thiết kế và được kiểm chứng end-to-end qua lệnh
+`eadf evaluate`. Benchmark phủ cả 4 hành vi nâng cấp và 6 lớp lỗ hổng (3 detector chuyên
+biệt của EADF + 3 detector stock của Slither), kèm các cặp âm tính (append/xóa biến cuối,
+refactor thuần) để đo precision. Các bảng dưới đây được sinh tự động từ
+`eadf/benchmark/results/spec_tables.md`.
 
 **B.1 — Phân bố hành vi nâng cấp** (theo Algorithm 5)
 
 | Hành vi nâng cấp | Số lượng | Tỷ lệ |
 |---|---|---|
-| Introduce Vulnerability | (to be filled after collection) | (to be filled after collection) |
-| Fix Vulnerability | (to be filled after collection) | (to be filled after collection) |
-| Smooth Upgrade | (to be filled after collection) | (to be filled after collection) |
-| Invalid Upgrade | (to be filled after collection) | (to be filled after collection) |
-| **Tổng** | (to be filled after collection) | 100% |
+| Introduce Vulnerability | 8 | 44.4% |
+| Fix Vulnerability | 3 | 16.7% |
+| Smooth Upgrade | 4 | 22.2% |
+| Invalid Upgrade | 3 | 16.7% |
+| **Tổng** | 18 | 100% |
 
 **B.2 — Thống kê quy mô mã nguồn (LOC mỗi implementation)**
 
 | Chỉ số | Giá trị |
 |---|---|
-| Min | (to be filled after collection) |
-| Trung vị (median) | (to be filled after collection) |
-| Trung bình (mean) | (to be filled after collection) |
-| Max | (to be filled after collection) |
-| Độ lệch chuẩn (std) | (to be filled after collection) |
+| Min | 10 |
+| Trung vị (median) | 15.5 |
+| Trung bình (mean) | 17.5 |
+| Max | 30 |
+| Độ lệch chuẩn (std) | 6.8 |
 
 **B.3 — Thống kê biến trạng thái (state variables)**
 
 | Chỉ số | Giá trị |
 |---|---|
-| Số biến trạng thái trung bình / contract | (to be filled after collection) |
-| Số storage slot trung bình / contract | (to be filled after collection) |
-| Tỷ lệ contract có packed slot | (to be filled after collection) |
-| Tỷ lệ contract dùng dynamic type (mapping/array/string/bytes) | (to be filled after collection) |
-| Số biến thay đổi trung bình giữa V(i) và V(i+1) | (to be filled after collection) |
+| Số biến trạng thái trung bình / contract | 2.72 |
+| Số storage slot trung bình / contract | 2.72 |
+| Tỷ lệ contract có packed slot | 0.0% |
+| Tỷ lệ contract dùng dynamic type | 0.0% |
 
-**B.4 — Phân bố loại lỗ hổng** (theo `detector_id`)
+**B.4 — Phân bố loại lỗ hổng** (theo `detector_id`, ground truth)
 
 | detector_id | Số lượng | Tỷ lệ |
 |---|---|---|
-| `storage-collision-cross-version` | (to be filled after collection) | (to be filled after collection) |
-| `missing-disable-initializers` | (to be filled after collection) | (to be filled after collection) |
-| `missing-upgrade-authorization` | (to be filled after collection) | (to be filled after collection) |
-| `uninitialized-state` | (to be filled after collection) | (to be filled after collection) |
-| `controlled-delegatecall` | (to be filled after collection) | (to be filled after collection) |
-| `suicidal` | (to be filled after collection) | (to be filled after collection) |
-| `reentrancy-eth` / `reentrancy-no-eth` | (to be filled after collection) | (to be filled after collection) |
-| `missing-zero-check` | (to be filled after collection) | (to be filled after collection) |
-| Khác | (to be filled after collection) | (to be filled after collection) |
+| `storage-collision-cross-version` | 5 | 29.4% |
+| `missing-upgrade-authorization` | 5 | 29.4% |
+| `missing-disable-initializers` | 3 | 17.6% |
+| `suicidal` | 2 | 11.8% |
+| `controlled-delegatecall` | 1 | 5.9% |
+| `missing-zero-check` | 1 | 5.9% |
 
 **B.5 — Phân bố mẫu Proxy (proxy pattern)**
 
 | Proxy pattern | Số lượng | Tỷ lệ |
 |---|---|---|
-| Transparent (EIP-1967) | (to be filled after collection) | (to be filled after collection) |
-| UUPS | (to be filled after collection) | (to be filled after collection) |
-| Beacon | (to be filled after collection) | (to be filled after collection) |
-| Diamond (EIP-2535) | (to be filled after collection) | (to be filled after collection) |
-| Khác / không xác định | (to be filled after collection) | (to be filled after collection) |
-| **Tổng** | (to be filled after collection) | 100% |
+| UUPS | 12 | 66.7% |
+| Transparent | 6 | 33.3% |
+| **Tổng** | 18 | 100% |
 
 ---
 
@@ -902,17 +901,38 @@ F1        = 2 × Precision × Recall / (Precision + Recall)
 
 ### 7.2. Baseline so sánh
 
+Đo trên benchmark tổng hợp ngoại tuyến 18 cặp (§6.5.2). Phạm vi chấm điểm giới hạn ở 6
+detector xuất hiện trong ground truth; dự đoán nằm ngoài phạm vi này bị bỏ qua (quy ước
+chấm điểm, xem thiết kế).
+
 | Phương pháp | Precision | Recall | F1-score |
 |---|---|---|---|
-| Slither đơn thuần | (cập nhật sau thực nghiệm) | | |
+| Slither đơn thuần | 100.00% | 21.05% | 34.78% |
 | USCSA (Li et al., 2026) | 92.26% | 89.67% | 90.95% |
-| **EADF (đề tài)** | (cập nhật sau thực nghiệm) | | |
+| **EADF (đề tài)** | 100.00% | 100.00% | 100.00% |
+
+Độ chính xác phân loại hành vi nâng cấp (Algorithm 5): **EADF 100.0% (18/18)**, Slither
+đơn thuần **38.9% (7/18)**.
+
+> **Diễn giải trung thực:** EADF đạt 100% trên benchmark này vì tập dữ liệu được xây dựng
+> có kiểm soát — ground truth phản ánh đúng các lỗ hổng thực sự tồn tại trong mỗi cặp và
+> mọi cặp đã được xác minh end-to-end bằng pipeline. Ý nghĩa của so sánh nằm ở **khoảng
+> cách recall**: Slither đơn thuần bỏ sót ~79% lỗ hổng (recall 21.05%) vì không có detector
+> cho 3 lớp lỗ hổng đặc thù nâng cấp (storage collision xuyên phiên bản, thiếu
+> `_disableInitializers()`, thiếu kiểm soát quyền trên `_authorizeUpgrade`); nó chỉ bắt được
+> các lỗ hổng generic (`suicidal`, `controlled-delegatecall`, `missing-zero-check`). Con số
+> USCSA trích từ bài báo gốc đo trên tập mainnet, nên chỉ mang tính tham chiếu, không trực
+> tiếp so sánh được với benchmark tổng hợp này.
 
 ### 7.3. Dataset
 
-- Nguồn: Ethereum mainnet qua Etherscan API
-- Tiêu chí: Verified source code + có `Upgraded` event + cả V(i) và V(i+1) đều verified
-- Ground truth: 200 instance được gán nhãn thủ công
+- **Đã dùng trong đồ án:** benchmark tổng hợp ngoại tuyến 18 cặp (§6.5.2), khai báo tại
+  `eadf/benchmark/manifest.toml`, chạy bằng `eadf evaluate`. Ground truth chính xác theo
+  thiết kế, phủ 4 hành vi nâng cấp và 6 lớp lỗ hổng.
+- **Hướng phát triển (future work):** mở rộng sang dữ liệu Ethereum mainnet qua Etherscan
+  API (`EtherscanSource` đã được hiện thực nhưng nằm ngoài phạm vi đồ án). Tiêu chí dự kiến:
+  verified source code + có `Upgraded` event + cả V(i) và V(i+1) đều verified; mục tiêu
+  ~200 instance gán nhãn thủ công.
 
 ---
 
