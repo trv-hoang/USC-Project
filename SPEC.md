@@ -506,6 +506,165 @@ Generated: {timestamp}
 Risk Level: 🔴 CRITICAL
 ```
 
+### 5.7. Pseudo-code Algorithms
+
+Năm thuật toán dưới đây mô tả lõi xử lý của EADF. Ký hiệu: `⊥` = không tồn tại,
+`τ` = ngưỡng confidence (mặc định 0.6), `×` = tích Descartes.
+
+**Algorithm 1 — EADF Main Pipeline.** Điều phối 5 stage: collect → diff → detect → match → report.
+
+```
+Input : proxy_address  HOẶC  (local_v1, local_v2)
+Output: report.json, checklist.md
+
+ 1: # Stage 1 — Collection
+ 2: if proxy_address đưa vào:
+ 3:     (src_v1, src_v2, meta) ← EtherscanSource.fetch(proxy_address)  # parse Upgraded events, lấy 2 impl cuối
+ 4: else:
+ 5:     (src_v1, src_v2, meta) ← LocalSource.fetch(local_v1, local_v2)
+ 6: lưu src_v1, src_v2, meta vào stage1/
+ 7:
+ 8: # Stage 2 — AST + Storage Slot Differential
+ 9: ast_v1 ← BuildAST(src_v1);  ast_v2 ← BuildAST(src_v2)
+10: vars_v1 ← ExtractStateVars(ast_v1);  vars_v2 ← ExtractStateVars(ast_v2)
+11: ast_diff ← SimpleASTDiffer(ast_v1, ast_v2)        # INSERT/DELETE/UPDATE/MOVE trên biến trạng thái + hàm
+12: slot_v1 ← ComputeSlotMapping(vars_v1)             # Algorithm 2
+13: slot_v2 ← ComputeSlotMapping(vars_v2)
+14: slot_diff ← CompareSlotMappings(slot_v1, slot_v2) # Algorithm 3
+15: lưu ast_diff, slot_diff vào stage2/
+16:
+17: # Stage 3 — Vulnerability Detection
+18: F1 ← RunSlither(src_v1) ∪ CustomDetectors(ast_v1)
+19: F2 ← RunSlither(src_v2) ∪ CustomDetectors(ast_v2) ∪ StorageCollisionDetector(slot_diff)
+20: behavior ← ClassifyBehavior(F1, F2)               # Algorithm 5
+21: lưu F1, F2, behavior vào stage3/
+22:
+23: # Stage 4 — Change ↔ Vulnerability Matching
+24: candidates ← []
+25: for each (change, vuln) in ast_diff.changes × F2:
+26:     conf ← ComputeConfidence(change, vuln, slot_diff, src_v2)   # Algorithm 4
+27:     if conf > τ:  thêm (conf, change, vuln) vào candidates
+28: sắp xếp candidates theo conf giảm dần
+29: pairs ← []; used_c ← ∅; used_v ← ∅                # gán 1:1 tham lam
+30: for each (conf, change, vuln) in candidates:
+31:     if change.id ∉ used_c and vuln.id ∉ used_v:
+32:         thêm pair(change, vuln, conf) vào pairs; used_c += change.id; used_v += vuln.id
+33: lưu pairs vào stage4/
+34:
+35: # Stage 5 — Reporting
+36: risk ← ClassifyRiskLevel(slot_diff, F1, F2, behavior)
+37: ghi report.json, checklist.md vào stage5/
+38: return report.json, checklist.md
+```
+
+**Algorithm 2 — ComputeSlotMapping.** Ánh xạ biến trạng thái sang chỉ số storage slot theo
+quy tắc packing của Solidity.
+
+```
+Input : state_vars — danh sách (name, type) theo đúng thứ tự khai báo
+Output: M : slot_index → SlotEntry(name, type, size, offset)
+
+ 1: slot ← 0; offset ← 0; M ← {}
+ 2: for v in state_vars:
+ 3:     size ← SizeOf(v.type)               # số byte trong 1 slot; dynamic → 32
+ 4:     if IsDynamic(v.type):               # mapping, T[], string, bytes
+ 5:         if offset > 0: slot ← slot+1; offset ← 0
+ 6:         M[slot] ← (v, 32, 0);  slot ← slot+1; offset ← 0
+ 7:     else if size > 32:                  # mảng cố định trải nhiều slot
+ 8:         if offset > 0: slot ← slot+1; offset ← 0
+ 9:         M[slot] ← (v, size, 0);  slot ← slot + size/32; offset ← 0
+10:     else if size == 32:                 # biến chiếm trọn slot
+11:         if offset > 0: slot ← slot+1; offset ← 0
+12:         M[slot] ← (v, 32, 0);  slot ← slot+1; offset ← 0
+13:     else if offset + size > 32:         # không vừa slot hiện tại
+14:         slot ← slot+1; offset ← 0
+15:         M[slot] ← (v, size, 0);  offset ← size
+16:     else:                               # pack chung slot hiện tại
+17:         if slot ∉ M: M[slot] ← (v, size, offset)   # MVP: chỉ ghi biến đầu tiên
+18:         offset ← offset + size
+19: return M
+
+# Giới hạn MVP: mỗi packed slot chỉ ghi biến đầu tiên; cờ packed_slots_present
+# báo hiệu những lần chạy mà giới hạn này làm mất thông tin.
+```
+
+**Algorithm 3 — CompareSlotMappings (Storage Slot Differential).** So sánh hai ánh xạ slot,
+phát hiện collision và gán mức độ. Đây là một trong hai đóng góp mới của đề tài.
+
+```
+Input : M1, M2 — ánh xạ slot của V1, V2
+Output: collisions — danh sách (slot, v1_var, v2_var, severity, reason)
+
+ 1: collisions ← []
+ 2: for s in sort(keys(M1) ∪ keys(M2)):
+ 3:     a ← M1[s];  b ← M2[s]
+ 4:     if a = ⊥ or b = ⊥: continue              # slot chỉ tồn tại ở một phiên bản
+ 5:     if (a.name, a.type) ≠ (b.name, b.type):  # cùng slot, khác biến → collision
+ 6:         (sev, reason) ← ClassifySeverity(a, b, s)
+ 7:         thêm (s, a.name, b.name, sev, reason) vào collisions
+ 8: return collisions
+
+ClassifySeverity(a, b, s):                        # match đầu tiên thắng
+ 9:  if a.name khớp /owner|implementation|admin|proxy/i:                  return Critical
+10:  if s = 0 and a.type ∈ {address, address payable, uint256, bytes32}:  return Critical
+11:  if a.type bắt đầu "mapping(" or a.name khớp /balance|allow|allowance/i: return High
+12:  if s = 0:                                                            return High
+13:  return Medium
+```
+
+**Algorithm 4 — ComputeConfidence (5-dimensional scoring).** Hợp nhất 5 chiều điểm thành một
+giá trị confidence; trọng số `w = (pos .25, pattern .20, semantic .25, type .15, slot .15)`.
+
+```
+Input : change, vuln, slot_diff, src_v2_lines
+Output: confidence ∈ [0, 1]
+
+ 1: line_c ← (change.v2_loc ?? change.v1_loc).line;  line_v ← vuln.loc.line
+ 2: # S_pos — độ gần dòng
+ 3: d ← |line_c − line_v|
+ 4: S_pos ← 1.0 nếu d=0; 0.8 nếu d≤2; 0.5 nếu d≤5; 0.2 nếu d≤10; ngược lại 0.1
+ 5: # S_pattern — từ khóa detector trong cửa sổ ±5 dòng
+ 6: ctx ← src_v2_lines[line_c−5 .. line_c+5]
+ 7: S_pattern ← min(1.0, 0.1 × |{kw ∈ Keywords(vuln.detector) : kw ∈ ctx}|)
+ 8: # S_semantic — pha trộn 6 đặc trưng có trọng số
+ 9: f1 ← FuzzRatio(change.node_name, vuln.target_name) / 100        # rapidfuzz
+10: f2 ← Table[ast_node_relevance][op.kind.detector]
+11: f3 ← 1 nếu change.node_name ⊆ vuln.description else 0
+12: f4 ← Table[op_detector][op.detector]
+13: f5 ← Table[trait][kind.detector]
+14: f6 ← Table[impact][kind.detector]
+15: S_semantic ← min(1, .30·f1 + .20·f2 + .15·f3 + .15·f4 + .10·f5 + .10·f6)
+16: # S_type — tra cứu (op × node_kind × detector)
+17: S_type ← OpVulnMap[(change.op, change.node_kind)][vuln.detector]  (mặc định 0)
+18: # S_slot — chiều nhận biết storage collision (chiều mới của đề tài)
+19: S_slot ← CalcSlotScore(change, vuln, slot_diff)
+20: confidence ← w.pos·S_pos + w.pattern·S_pattern + w.semantic·S_semantic
+21:                + w.type·S_type + w.slot·S_slot
+22: return confidence
+
+CalcSlotScore(change, vuln, slot_diff):
+23:  if vuln.detector ≠ "storage-collision-cross-version": return 0.0
+24:  if change.first_affected_slot = ⊥: return 0.0
+25:  N ← change.first_affected_slot
+26:  if change.op = INSERT and ∃ collision c: c.slot ≥ N:  return 1.0   # INSERT đẩy mọi slot ≥ N
+27:  if change.op ∈ {UPDATE, MOVE} and ∃ collision c: c.slot = N: return 1.0  # trùng khít
+28:  if ∃ collision c: |c.slot − N| = 1:  return 0.5                    # slot kề
+29:  return 0.0
+```
+
+**Algorithm 5 — ClassifyBehavior.** Phân loại hành vi nâng cấp từ tập lỗ hổng hai phiên bản
+(theo §3.1).
+
+```
+Input : F1 (lỗ hổng trong V1), F2 (lỗ hổng trong V2)
+Output: behavior ∈ {Introduce, Fix, Smooth, Invalid}
+
+ 1: if F1 = ∅ and F2 ≠ ∅:  return "Introduce Vulnerability"
+ 2: if F1 ≠ ∅ and F2 = ∅:  return "Fix Vulnerability"
+ 3: if F1 = ∅ and F2 = ∅:  return "Smooth Upgrade"
+ 4: return "Invalid Upgrade"        # cả hai phiên bản đều còn lỗ hổng
+```
+
 ---
 
 ## 6. THỰC NGHIỆM TẤN CÔNG (Chương 7)
@@ -642,6 +801,92 @@ contract SecureUUPS is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 | BadProxy.upgradeTo() | 1,229 |
 | UUPS.upgradeToAndCall() | 5,782 |
 | UUPS với reinitializer | 31,396 |
+
+### 6.5. Dataset Description and EDA
+
+Đánh giá EADF dựa trên hai tập dữ liệu bổ trợ: **Dataset A** (cục bộ, ground truth
+thủ công, dùng làm acceptance gate của MVP) và **Dataset B** (mainnet, quy mô lớn,
+dùng để đo Precision/Recall/F1 ở §7). Tiêu chí thu thập Dataset B xem §7.3.
+
+#### 6.5.1. Dataset A — Local Upgrade Instances (ground truth)
+
+Ba cặp nâng cấp được xây dựng thủ công, mỗi cặp tương ứng một kịch bản tấn công ở §6.1–6.3.
+Cột "Hành vi (chủ đích)" là nhãn thiết kế; cột "Detector-level invariant" là bất biến
+được kiểm chứng end-to-end trong `eadf/tests/test_pipeline_e2e.py`.
+
+| # | Instance | V1 → V2 | Hành vi (chủ đích) | Lỗ hổng chính | Severity | Detector-level invariant (V1 → V2) |
+|---|----------|---------|--------------------|---------------|----------|------------------------------------|
+| A1 | Storage Collision | `VulnerableLogicV1` → `VulnerableLogicV2` | Introduce Vulnerability | `storage-collision-cross-version` (slot 0: `value` → `collisionVar`) | Critical | risk_level = **Critical** |
+| A2 | Uninitialized Implementation | `VulnerableLogicV1` → `SecureLogicV1` | Fix Vulnerability | `missing-disable-initializers` | High | có ở V1 → **không còn** ở V2 |
+| A3 | Unauthorized Upgrade | `VulnerableUUPS` → `SecureUUPS` | Fix Vulnerability | `missing-upgrade-authorization` | Critical | có ở V1 → **không còn** ở V2 (gated `onlyOwner`) |
+
+> **Lưu ý trung thực về A2/A3:** phiên bản secure (`SecureLogicV1`, `SecureUUPS`) kế thừa
+> thêm contract OpenZeppelin (Ownable/UUPS), làm thay đổi storage layout và phát sinh
+> finding phụ trên V2 (`storage-collision-cross-version`). Do V2 vẫn còn finding,
+> `ClassifyBehavior` (Algorithm 5) xếp tổng thể là **Invalid Upgrade** thay vì *Fix
+> Vulnerability*. Đây là *fixture-pair artifact* (storage của OwnableUpgradeable là cố ý
+> trong thiết kế secure), không phải false-positive. Bất biến cốt lõi được kiểm chứng là
+> việc đóng đúng lỗ hổng mục tiêu giữa V1 và V2 (cột cuối).
+
+#### 6.5.2. Dataset B — Mainnet Instances (EDA)
+
+Các bảng dưới đây là khung phân tích thăm dò (EDA) cho tập mainnet; số liệu sẽ được điền
+sau khi hoàn tất thu thập và gán nhãn (mục tiêu ~200 instance, tiêu chí §7.3).
+
+**B.1 — Phân bố hành vi nâng cấp** (theo Algorithm 5)
+
+| Hành vi nâng cấp | Số lượng | Tỷ lệ |
+|---|---|---|
+| Introduce Vulnerability | (to be filled after collection) | (to be filled after collection) |
+| Fix Vulnerability | (to be filled after collection) | (to be filled after collection) |
+| Smooth Upgrade | (to be filled after collection) | (to be filled after collection) |
+| Invalid Upgrade | (to be filled after collection) | (to be filled after collection) |
+| **Tổng** | (to be filled after collection) | 100% |
+
+**B.2 — Thống kê quy mô mã nguồn (LOC mỗi implementation)**
+
+| Chỉ số | Giá trị |
+|---|---|
+| Min | (to be filled after collection) |
+| Trung vị (median) | (to be filled after collection) |
+| Trung bình (mean) | (to be filled after collection) |
+| Max | (to be filled after collection) |
+| Độ lệch chuẩn (std) | (to be filled after collection) |
+
+**B.3 — Thống kê biến trạng thái (state variables)**
+
+| Chỉ số | Giá trị |
+|---|---|
+| Số biến trạng thái trung bình / contract | (to be filled after collection) |
+| Số storage slot trung bình / contract | (to be filled after collection) |
+| Tỷ lệ contract có packed slot | (to be filled after collection) |
+| Tỷ lệ contract dùng dynamic type (mapping/array/string/bytes) | (to be filled after collection) |
+| Số biến thay đổi trung bình giữa V(i) và V(i+1) | (to be filled after collection) |
+
+**B.4 — Phân bố loại lỗ hổng** (theo `detector_id`)
+
+| detector_id | Số lượng | Tỷ lệ |
+|---|---|---|
+| `storage-collision-cross-version` | (to be filled after collection) | (to be filled after collection) |
+| `missing-disable-initializers` | (to be filled after collection) | (to be filled after collection) |
+| `missing-upgrade-authorization` | (to be filled after collection) | (to be filled after collection) |
+| `uninitialized-state` | (to be filled after collection) | (to be filled after collection) |
+| `controlled-delegatecall` | (to be filled after collection) | (to be filled after collection) |
+| `suicidal` | (to be filled after collection) | (to be filled after collection) |
+| `reentrancy-eth` / `reentrancy-no-eth` | (to be filled after collection) | (to be filled after collection) |
+| `missing-zero-check` | (to be filled after collection) | (to be filled after collection) |
+| Khác | (to be filled after collection) | (to be filled after collection) |
+
+**B.5 — Phân bố mẫu Proxy (proxy pattern)**
+
+| Proxy pattern | Số lượng | Tỷ lệ |
+|---|---|---|
+| Transparent (EIP-1967) | (to be filled after collection) | (to be filled after collection) |
+| UUPS | (to be filled after collection) | (to be filled after collection) |
+| Beacon | (to be filled after collection) | (to be filled after collection) |
+| Diamond (EIP-2535) | (to be filled after collection) | (to be filled after collection) |
+| Khác / không xác định | (to be filled after collection) | (to be filled after collection) |
+| **Tổng** | (to be filled after collection) | 100% |
 
 ---
 
