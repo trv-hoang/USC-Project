@@ -1,6 +1,7 @@
 # EADF — Evolution-Aware Detection Framework
 
-> **Status: Under construction.** Core analysis modules land in Phases 3–8 of the MVP plan.
+> **Status: MVP complete.** All five modules, the CLI, and the offline evaluation
+> benchmark are implemented and covered by the test suite (113 passing).
 
 EADF is a Python tool for detecting security regressions across upgrade boundaries in proxy-based
 upgradeable smart contracts (UUPS, Transparent Proxy, Beacon). It statically analyses two contract
@@ -36,8 +37,8 @@ cp .env.example .env
 
 ## Quickstart
 
-> **Note:** The CLI is not functional yet — `eadf.cli` is created in Task 10 (Phase 8).
-> The commands below show the intended interface once the full MVP is in place.
+> **Note:** Run `eadf` from the repository root so Slither resolves the
+> `@openzeppelin` import remappings declared in `foundry.toml`/`remappings.txt`.
 
 ```bash
 # Analyse two local Solidity files
