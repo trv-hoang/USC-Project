@@ -60,3 +60,39 @@ vulns_v1 = []
 vulns_v2 = []
 proxy_pattern = "UUPS"
 notes = "negative case: removing a trailing variable shrinks layout, no same-slot collision"
+
+[[pair]]
+id = "IN01"
+name = "add _disableInitializers (fix)"
+category = "initialization"
+v1 = "initialization/IN01/v1.sol"
+v2 = "initialization/IN01/v2.sol"
+behavior = "Fix Vulnerability"
+vulns_v1 = ["missing-disable-initializers"]
+vulns_v2 = []
+proxy_pattern = "Transparent"
+notes = "V1 lacks _disableInitializers(); V2 adds the constructor guard"
+
+[[pair]]
+id = "IN02"
+name = "remove _disableInitializers (introduce)"
+category = "initialization"
+v1 = "initialization/IN02/v1.sol"
+v2 = "initialization/IN02/v2.sol"
+behavior = "Introduce Vulnerability"
+vulns_v1 = []
+vulns_v2 = ["missing-disable-initializers"]
+proxy_pattern = "Transparent"
+notes = "V1 guarded; V2 drops the constructor guard"
+
+[[pair]]
+id = "IN03"
+name = "both versions unguarded (invalid)"
+category = "initialization"
+v1 = "initialization/IN03/v1.sol"
+v2 = "initialization/IN03/v2.sol"
+behavior = "Invalid Upgrade"
+vulns_v1 = ["missing-disable-initializers"]
+vulns_v2 = ["missing-disable-initializers"]
+proxy_pattern = "Transparent"
+notes = "neither version calls _disableInitializers(); cosmetic-only change"
