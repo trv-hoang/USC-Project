@@ -96,3 +96,39 @@ vulns_v1 = ["missing-disable-initializers"]
 vulns_v2 = ["missing-disable-initializers"]
 proxy_pattern = "Transparent"
 notes = "neither version calls _disableInitializers(); cosmetic-only change"
+
+[[pair]]
+id = "AU01"
+name = "add onlyOwner to _authorizeUpgrade (fix)"
+category = "authorization"
+v1 = "authorization/AU01/v1.sol"
+v2 = "authorization/AU01/v2.sol"
+behavior = "Fix Vulnerability"
+vulns_v1 = ["missing-upgrade-authorization"]
+vulns_v2 = []
+proxy_pattern = "UUPS"
+notes = "V1 open _authorizeUpgrade; V2 gated by onlyOwner. Same layout, both ctor-guarded."
+
+[[pair]]
+id = "AU02"
+name = "remove onlyOwner from _authorizeUpgrade (introduce)"
+category = "authorization"
+v1 = "authorization/AU02/v1.sol"
+v2 = "authorization/AU02/v2.sol"
+behavior = "Introduce Vulnerability"
+vulns_v1 = []
+vulns_v2 = ["missing-upgrade-authorization"]
+proxy_pattern = "UUPS"
+notes = "V1 gated; V2 drops the onlyOwner modifier"
+
+[[pair]]
+id = "AU03"
+name = "both versions open (invalid)"
+category = "authorization"
+v1 = "authorization/AU03/v1.sol"
+v2 = "authorization/AU03/v2.sol"
+behavior = "Invalid Upgrade"
+vulns_v1 = ["missing-upgrade-authorization"]
+vulns_v2 = ["missing-upgrade-authorization"]
+proxy_pattern = "UUPS"
+notes = "neither version gates _authorizeUpgrade; cosmetic-only change"
