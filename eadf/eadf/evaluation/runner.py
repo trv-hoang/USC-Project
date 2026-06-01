@@ -27,7 +27,9 @@ def run_eadf_predictions(pair: BenchmarkPair, work_root: Path) -> tuple[set[str]
     vuln = json.loads((Path(work_root) / run_id / "stage3_vulnerabilities.json").read_text())
     v1 = {f["detector_id"] for f in vuln.get("v1", [])}
     v2 = {f["detector_id"] for f in vuln.get("v2", [])}
-    return v1, v2, vuln.get("upgrade_behavior", "Smooth Upgrade")
+    # Fail loud if the pipeline didn't record a behavior — an evaluation harness
+    # must not silently score a pair as "Smooth Upgrade" on a missing key.
+    return v1, v2, vuln["upgrade_behavior"]
 
 
 def run_baseline_predictions(pair: BenchmarkPair) -> tuple[set[str], set[str], str]:

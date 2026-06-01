@@ -916,7 +916,10 @@ chấm điểm, xem thiết kế).
 
 > **Diễn giải trung thực:** EADF đạt 100% trên benchmark này vì tập dữ liệu được xây dựng
 > có kiểm soát — ground truth phản ánh đúng các lỗ hổng thực sự tồn tại trong mỗi cặp và
-> mọi cặp đã được xác minh end-to-end bằng pipeline. Ý nghĩa của so sánh nằm ở **khoảng
+> mọi cặp đã được xác minh end-to-end bằng pipeline. Do đó 100% là **cận trên trong điều
+> kiện kiểm soát**, không phải bằng chứng về khả năng tổng quát hóa; hiệu năng trên các bản
+> nâng cấp mainnet thực tế chưa được đo và thuộc hướng phát triển (§7.3). Ý nghĩa của so
+> sánh nằm ở **khoảng
 > cách recall**: Slither đơn thuần bỏ sót ~79% lỗ hổng (recall 21.05%) vì không có detector
 > cho 3 lớp lỗ hổng đặc thù nâng cấp (storage collision xuyên phiên bản, thiếu
 > `_disableInitializers()`, thiếu kiểm soát quyền trên `_authorizeUpgrade`); nó chỉ bắt được
