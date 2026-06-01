@@ -408,3 +408,34 @@ def show(run_id: str):
     typer.echo(f"  Matched pairs:     {len(pairs)}")
     for p in pairs:
         typer.echo(f"    {p['change_id']} ↔ {p['vuln_id']} conf={p['confidence']}")
+
+
+@app.command()
+def evaluate(
+    manifest: Path = typer.Option(
+        Path("eadf/benchmark/manifest.toml"), "--manifest",
+        help="Path to the benchmark ground-truth manifest.",
+    ),
+    out: Path = typer.Option(
+        Path("eadf/benchmark/results"), "--out",
+        help="Directory for metrics.json + spec_tables.md.",
+    ),
+):
+    """Run the offline benchmark: EADF vs Slither-only baseline (Approach A)."""
+    import os
+    from .evaluation.runner import evaluate as run_eval
+
+    work_root = Path(os.environ.get("EADF_WORK_ROOT", "work")) / "_bench"
+    if not manifest.exists():
+        typer.echo(f"Manifest not found: {manifest}", err=True)
+        raise typer.Exit(code=2)
+    res = run_eval(manifest, work_root=work_root, out_dir=out)
+    typer.echo(f"Evaluated {res.n_pairs} pairs (in-scope detectors: {len(res.in_scope)})")
+    typer.echo(f"  EADF      P/R/F1: {res.eadf['precision']:.3f} / {res.eadf['recall']:.3f} / {res.eadf['f1']:.3f}")
+    typer.echo(f"  Baseline  P/R/F1: {res.baseline['precision']:.3f} / {res.baseline['recall']:.3f} / {res.baseline['f1']:.3f}")
+    typer.echo(f"  Behavior accuracy — EADF {res.eadf_behavior['accuracy']:.3f}, baseline {res.baseline_behavior['accuracy']:.3f}")
+    typer.echo(f"Wrote {out}/metrics.json and {out}/spec_tables.md")
+
+
+if __name__ == "__main__":
+    app()
