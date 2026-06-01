@@ -1,0 +1,23 @@
+[[pair]]
+id = "MINI_SC"
+name = "insert var at slot 0"
+category = "storage_collision"
+v1 = "MINI_SC/v1.sol"
+v2 = "MINI_SC/v2.sol"
+behavior = "Introduce Vulnerability"
+vulns_v1 = []
+vulns_v2 = ["storage-collision-cross-version"]
+proxy_pattern = "UUPS"
+notes = "value:uint256@0 -> collisionVar inserted at slot 0"
+
+[[pair]]
+id = "MINI_CLEAN"
+name = "no-op rename of a local"
+category = "smooth"
+v1 = "MINI_CLEAN/v1.sol"
+v2 = "MINI_CLEAN/v2.sol"
+behavior = "Smooth Upgrade"
+vulns_v1 = []
+vulns_v2 = []
+proxy_pattern = "UUPS"
+notes = "identical layout, cosmetic change only"
