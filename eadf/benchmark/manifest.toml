@@ -192,3 +192,27 @@ vulns_v1 = []
 vulns_v2 = []
 proxy_pattern = "Transparent"
 notes = "adds a pure helper function, no state or layout change"
+
+[[pair]]
+id = "CB01"
+name = "introduce collision + open authorization"
+category = "combined"
+v1 = "combined/CB01/v1.sol"
+v2 = "combined/CB01/v2.sol"
+behavior = "Introduce Vulnerability"
+vulns_v1 = []
+vulns_v2 = ["storage-collision-cross-version", "missing-upgrade-authorization"]
+proxy_pattern = "UUPS"
+notes = "V2 inserts collisionVar at slot 0 AND opens _authorizeUpgrade"
+
+[[pair]]
+id = "CB02"
+name = "fix auth but introduce collision (invalid)"
+category = "combined"
+v1 = "combined/CB02/v1.sol"
+v2 = "combined/CB02/v2.sol"
+behavior = "Invalid Upgrade"
+vulns_v1 = ["missing-upgrade-authorization"]
+vulns_v2 = ["storage-collision-cross-version"]
+proxy_pattern = "UUPS"
+notes = "V1 open auth; V2 gates auth but inserts collisionVar at slot 0"
