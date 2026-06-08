@@ -9,32 +9,44 @@ This project provides practical demonstrations of:
 1. **Secure UUPS Upgrade Pattern** - Proper implementation following OpenZeppelin best practices
 2. **Storage Collision Attack** - How improper storage layout corrupts proxy contracts
 3. **Uninitialized Implementation Attack** - How attackers can take over unprotected implementations
+4. **Unauthorized Upgrade Attack** - How a missing access-control modifier on `_authorizeUpgrade` lets anyone hijack a UUPS proxy
+
+### EADF Evaluation Benchmark
+
+The [`eadf/`](eadf/) directory contains EADF (Evolution-Aware Detection Framework), a static analyzer for upgrade regressions. Its `eadf evaluate` command runs the full EADF pipeline and a Slither-only baseline over an offline synthetic benchmark of 18 V1→V2 upgrade pairs ([`eadf/benchmark/`](eadf/benchmark/)). Headline result: **EADF 100% F1 vs. the Slither-only baseline at 34.78% F1** (the baseline misses ~79% of upgrade-specific bugs). See [`eadf/README.md`](eadf/README.md#evaluation) for details.
 
 ### Project Structure
+
+Convention: contracts under `src/secure/` are the "do it right" references; contracts under `src/vulnerable/` are attack demonstrations. Folder is decided by security posture, not by scenario.
 
 ```
 usc-security-thesis/
 ├── src/
-│   ├── vulnerable/                 # Vulnerable contracts (for attack demos)
-│   │   ├── BadProxy.sol            # Proxy with slot 0 storage (vulnerable)
-│   │   ├── VulnerableLogicV1.sol   # Logic without _disableInitializers()
-│   │   └── VulnerableLogicV2.sol   # Logic causing storage collision
+│   ├── secure/                     # Secure reference implementations
+│   │   ├── SecureProxy.sol         # ERC1967 compliant proxy
+│   │   ├── SecureLogicV1.sol       # Proper UUPS with all protections
+│   │   ├── SecureLogicV2.sol       # Safe upgrade pattern
+│   │   └── SecureUUPS.sol          # onlyOwner-gated _authorizeUpgrade (Scenario 3)
 │   │
-│   └── secure/                     # Secure UUPS implementation
-│       ├── SecureProxy.sol         # ERC1967 compliant proxy
-│       ├── SecureLogicV1.sol       # Proper UUPS with all protections
-│       └── SecureLogicV2.sol       # Safe upgrade pattern
+│   └── vulnerable/                 # Vulnerable contracts (for attack demos)
+│       ├── BadProxy.sol            # Proxy with slot 0 storage (vulnerable)
+│       ├── VulnerableLogicV1.sol   # Logic without _disableInitializers()
+│       ├── VulnerableLogicV2.sol   # Logic causing storage collision
+│       ├── VulnerableUUPS.sol      # _authorizeUpgrade with no access control (Scenario 3)
+│       └── MaliciousImpl.sol       # Attacker payload with drainFunds (Scenario 3)
 │
 ├── test/                           # Test scripts
 │   ├── 1_StorageCollision.t.sol    # Storage collision attack tests
 │   ├── 2_Uninitialized.t.sol       # Uninitialized implementation tests
 │   ├── 3_GasComparison.t.sol       # Gas cost comparison
-│   └── 4_UpgradeFlow.t.sol         # Full upgrade flow verification
+│   ├── 4_UpgradeFlow.t.sol         # Full upgrade flow verification
+│   └── 5_UnauthorizedUpgrade.t.sol # Unauthorized upgrade attack tests
 │
 └── script/demo/                    # Presentation demo scripts
-    ├── SecureUpgradeDemo.s.sol     # Normal UUPS upgrade flow
-    ├── StorageCollisionDemo.s.sol  # Storage collision attack
-    └── UninitializedDemo.s.sol     # Uninitialized implementation attack
+    ├── SecureUpgradeDemo.s.sol         # Normal UUPS upgrade flow
+    ├── StorageCollisionDemo.s.sol      # Storage collision attack
+    ├── UninitializedDemo.s.sol         # Uninitialized implementation attack
+    └── UnauthorizedUpgradeDemo.s.sol   # Unauthorized upgrade attack
 ```
 
 ## Requirements
@@ -65,7 +77,7 @@ forge build
 forge test --summary
 ```
 
-Expected output: **16/16 tests pass**
+Expected output: **19/19 tests pass**
 
 | Test Suite                      | Tests |
 | ------------------------------- | ----- |
@@ -73,6 +85,7 @@ Expected output: **16/16 tests pass**
 | UninitializedImplementationTest | 4     |
 | GasComparisonTest               | 4     |
 | UpgradeFlowTest                 | 5     |
+| UnauthorizedUpgradeTest         | 3     |
 
 ## How to Demo
 
@@ -141,7 +154,24 @@ forge script script/demo/UninitializedDemo.s.sol \
 
 ---
 
-### Demo 4: Gas Comparison
+### Demo 4: Unauthorized Upgrade Attack
+
+Demonstrates how a missing `onlyOwner` on `_authorizeUpgrade` lets any caller upgrade a UUPS proxy to an attacker-controlled implementation and drain its ETH.
+
+```bash
+forge script script/demo/UnauthorizedUpgradeDemo.s.sol \
+  --rpc-url http://localhost:8545 \
+  --broadcast -vvv
+```
+
+**Expected Result:**
+
+- **Vulnerable:** Attacker calls `upgradeToAndCall(MaliciousImpl, "")` → succeeds → `drainFunds(attacker)` → proxy emptied
+- **Secure:** `onlyOwner` modifier on `_authorizeUpgrade` reverts non-owner attempts with `OwnableUnauthorizedAccount`
+
+---
+
+### Demo 5: Gas Comparison
 
 Compare gas costs between vulnerable and secure patterns.
 
@@ -181,6 +211,7 @@ In Terminal 1, press `Ctrl+C` to stop Anvil, then run `anvil` again.
 - ❌ No `_disableInitializers()` → Implementation takeover
 - ❌ Implementation at slot 0 → Storage collision
 - ❌ New variables before inherited → Storage layout corruption
+- ❌ `_authorizeUpgrade` without `onlyOwner` → Anyone can hijack the proxy
 
 ## License
 

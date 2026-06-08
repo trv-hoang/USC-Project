@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eadf"
+version = "0.1.0"
+description = "Evolution-Aware Detection Framework for proxy-based upgradeable smart contracts"
+requires-python = ">=3.10"
+dependencies = [
+    "slither-analyzer>=0.10.4",
+    "solc-select>=1.0.4",
+    "web3>=6.15.0",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+    "rapidfuzz>=3.6.0",
+    "typer>=0.12.0",
+    "tomli>=2.0; python_version<'3.11'",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-cov", "ruff", "mypy"]
+
+[project.scripts]
+eadf = "eadf.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["eadf*"]
+
+[tool.setuptools.package-data]
+# Ship the semantic_tables.toml (and any other data files) inside the wheel
+# so importlib.resources finds them after pip install. Without this, eadf/data/
+# would be missing from non-editable installs and semantic_scorer would crash.
+eadf = ["data/*.toml"]

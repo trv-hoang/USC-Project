@@ -5,7 +5,7 @@ out/
 # Broadcast logs (deployment artifacts)
 broadcast/
 
-# Docs
+# Docs: internal notes, không đưa lên repo
 docs/
 
 # Dotenv file

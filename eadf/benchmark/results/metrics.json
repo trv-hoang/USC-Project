@@ -1,0 +1,166 @@
+{
+  "in_scope": [
+    "controlled-delegatecall",
+    "missing-disable-initializers",
+    "missing-upgrade-authorization",
+    "missing-zero-check",
+    "storage-collision-cross-version",
+    "suicidal"
+  ],
+  "eadf": {
+    "tp": 19,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "per_detector": {
+      "controlled-delegatecall": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "storage-collision-cross-version": {
+        "tp": 5,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "missing-zero-check": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "missing-upgrade-authorization": {
+        "tp": 6,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "suicidal": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "missing-disable-initializers": {
+        "tp": 4,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      }
+    }
+  },
+  "baseline": {
+    "tp": 4,
+    "fp": 0,
+    "fn": 15,
+    "precision": 1.0,
+    "recall": 0.21052631578947367,
+    "f1": 0.34782608695652173,
+    "per_detector": {
+      "controlled-delegatecall": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "storage-collision-cross-version": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 5,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "missing-zero-check": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "missing-upgrade-authorization": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 6,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "suicidal": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "missing-disable-initializers": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 4,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    }
+  },
+  "eadf_behavior": {
+    "total": 18,
+    "correct": 18,
+    "accuracy": 1.0,
+    "confusion": {
+      "Introduce Vulnerability": {
+        "Introduce Vulnerability": 8
+      },
+      "Smooth Upgrade": {
+        "Smooth Upgrade": 4
+      },
+      "Fix Vulnerability": {
+        "Fix Vulnerability": 3
+      },
+      "Invalid Upgrade": {
+        "Invalid Upgrade": 3
+      }
+    }
+  },
+  "baseline_behavior": {
+    "total": 18,
+    "correct": 7,
+    "accuracy": 0.3888888888888889,
+    "confusion": {
+      "Introduce Vulnerability": {
+        "Smooth Upgrade": 6,
+        "Introduce Vulnerability": 2
+      },
+      "Smooth Upgrade": {
+        "Smooth Upgrade": 4
+      },
+      "Fix Vulnerability": {
+        "Smooth Upgrade": 2,
+        "Fix Vulnerability": 1
+      },
+      "Invalid Upgrade": {
+        "Smooth Upgrade": 3
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+# eadf/eadf/data/semantic_tables.toml
+# F2 — AST operation × detector relevance
+[ast_node_relevance]
+"INSERT.StateVariable.storage-collision-cross-version" = 1.0
+"UPDATE.StateVariable.storage-collision-cross-version" = 0.8
+"INSERT.Function.controlled-delegatecall" = 0.7
+"INSERT.Function.suicidal" = 0.7
+
+# F4 — change op × detector
+[op_detector]
+"INSERT.storage-collision-cross-version" = 1.0
+"DELETE.storage-collision-cross-version" = 0.6
+"UPDATE.storage-collision-cross-version" = 0.8
+
+# F5 — common-vulnerability-trait
+[trait]
+"StateVariable.storage-collision-cross-version" = 1.0
+"Function.uninitialized-state" = 0.6
+
+# F6 — impact area
+[impact]
+"StateVariable.storage-collision-cross-version" = 1.0
+"Function.suicidal" = 0.9
