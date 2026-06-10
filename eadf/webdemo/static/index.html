@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EADF — Phát hiện bảo mật USC</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <span class="brand">EADF</span>
+    <span class="brand-sub">Evolution-Aware Detection Framework</span>
+    <nav class="nav">
+      <button class="nav-btn active" data-view="analyze">Phân tích</button>
+      <button class="nav-btn" data-view="dataset">Dataset &amp; Đánh giá</button>
+    </nav>
+    <span id="analyze-controls">
+      <select id="preset" class="preset-select"></select>
+      <button id="analyze" class="analyze-btn">▶ Analyze</button>
+      <span id="source-flag" class="source-flag"></span>
+    </span>
+  </header>
+
+  <main>
+   <div id="view-analyze">
+    <section class="card code-view">
+      <div class="card-head"><span class="mtag">Module 1</span> Source code (thu thập &amp; chuẩn hóa) <small id="pair-desc"></small></div>
+      <div class="card-sub">Đầu vào pipeline: lấy &amp; chuẩn hóa source hai phiên bản V1, V2 để phân tích.</div>
+      <div class="code-cols">
+        <div><div class="code-label">V1 (trước)</div><pre id="code-v1" class="code"></pre></div>
+        <div><div class="code-label">V2 (sau)</div><pre id="code-v2" class="code"></pre></div>
+      </div>
+    </section>
+
+    <section class="pipeline" id="pipeline">
+      <div class="stage" data-stage="1"><span>M1</span><small>Thu thập</small><em class="anno" id="anno-1"></em></div>
+      <div class="stage" data-stage="2"><span>M2</span><small>AST + Slot Diff</small><em class="anno" id="anno-2"></em></div>
+      <div class="stage" data-stage="3"><span>M3</span><small>Phát hiện</small><em class="anno" id="anno-3"></em></div>
+      <div class="stage" data-stage="4"><span>M4</span><small>Ánh xạ</small><em class="anno" id="anno-4"></em></div>
+      <div class="stage" data-stage="5"><span>M5</span><small>Báo cáo</small><em class="anno" id="anno-5"></em></div>
+    </section>
+
+    <section class="card" id="terminal-card">
+      <div class="card-head">Live terminal — quá trình EADF chạy thật</div>
+      <pre id="terminal" class="terminal"><span class="term-idle">Bấm Analyze để chạy pipeline…</span></pre>
+    </section>
+
+    <section class="verdict" id="verdict" hidden>
+      <div class="badge behavior" id="badge-behavior"></div>
+      <div class="badge risk" id="badge-risk"></div>
+    </section>
+
+    <section class="card" id="slot-card" hidden>
+      <div class="card-head"><span class="mtag">Module 2</span> Storage Slot Differential</div>
+      <div class="card-sub">Tính &amp; so storage slot V1↔V2 theo packing rules. Ô đỏ = slot bị đổi nghĩa giữa hai phiên bản (collision).</div>
+      <div class="slot-grid">
+        <div><div class="code-label">V1</div><div id="slots-v1" class="slots"></div></div>
+        <div class="slot-arrow">⟶</div>
+        <div><div class="code-label">V2</div><div id="slots-v2" class="slots"></div></div>
+      </div>
+      <div id="no-collision" class="ok-note" hidden>✓ Không phát hiện storage collision</div>
+    </section>
+
+    <section class="card" id="findings-card" hidden>
+      <div class="card-head"><span class="mtag">Module 3</span> Findings (phát hiện lỗ hổng tĩnh)</div>
+      <div class="card-sub">Lỗ hổng phát hiện trên V2 (Slither + 3 detector riêng). Viền đỏ = mới đưa vào (introduced); viền xanh = đã vá (fixed).</div>
+      <div id="findings"></div>
+    </section>
+
+    <section class="card" id="matched-card" hidden>
+      <div class="card-head"><span class="mtag">Module 4</span> Matched pairs · Confidence 5 chiều</div>
+      <div class="card-sub">Ghép thay đổi code ↔ lỗ hổng, chấm điểm 5 chiều (pos·pattern·semantic·type·slot). Giữ cặp có confidence &gt; 0.6 và chỉ ra nguyên nhân gốc.</div>
+      <div id="matched"></div>
+    </section>
+
+    <section class="card" id="checklist-card" hidden>
+      <div class="card-head"><span class="mtag">Module 5</span> Security Checklist</div>
+      <div class="card-sub">Tổng hợp rủi ro &amp; sinh báo cáo + checklist an toàn tự động theo mức risk.</div>
+      <div id="checklist" class="checklist"></div>
+    </section>
+
+    <section class="card" id="algo-card">
+      <div class="card-head">Thuật toán: Mã giả (luận văn) ↔ Code thật (Python) <small id="algo-mod"></small></div>
+      <div class="algo-tabs" id="algo-tabs"></div>
+      <div class="algo-split">
+        <div><div class="code-label">Mã giả — luận văn</div><pre id="algo-pseudo" class="code algo-code pseudo"></pre></div>
+        <div><div class="code-label">Code thật — Python (source EADF)</div><pre id="algo-code" class="code algo-code"></pre></div>
+      </div>
+    </section>
+   </div><!-- /view-analyze -->
+
+   <div id="view-dataset" hidden>
+     <section class="card">
+       <div class="card-head">Kết quả đánh giá — EADF vs Slither (benchmark 18 cặp)</div>
+       <div class="card-sub">Đo trên Dataset B (offline synthetic, 18 cặp V1→V2). Số liệu đọc thật từ <code>benchmark/results/metrics.json</code>.</div>
+       <div id="eval-metrics"></div>
+     </section>
+     <section class="card">
+       <div class="card-head">Benchmark — thành phần Dataset B (18 cặp)</div>
+       <div class="card-sub">Phủ 4 hành vi nâng cấp, 6 lớp lỗ hổng (3 detector EADF + 3 stock Slither), 2 mẫu proxy. Có cả cặp âm tính (Smooth) để đo precision.</div>
+       <div id="dist-charts"></div>
+     </section>
+   </div><!-- /view-dataset -->
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

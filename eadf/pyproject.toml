@@ -20,6 +20,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-cov", "ruff", "mypy"]
+demo = ["flask>=3.0"]
 
 [project.scripts]
 eadf = "eadf.cli:app"
@@ -33,3 +34,6 @@ include = ["eadf*"]
 # so importlib.resources finds them after pip install. Without this, eadf/data/
 # would be missing from non-editable installs and semantic_scorer would crash.
 eadf = ["data/*.toml"]
+
+[tool.pytest.ini_options]
+markers = ["slow: tests that run the real EADF pipeline (Slither/solc)"]
