@@ -1,0 +1,16 @@
+{
+  "proxy_address": "LOCAL_TEST",
+  "upgrade_block": null,
+  "impl_v1": "v1.sol",
+  "impl_v2": "v2.sol",
+  "upgrade_behavior": "Introduce Vulnerability",
+  "storage_collision": {"detected": true, "severity": "Critical", "affected_slots": [0], "details": "Slot 0: value (V1) -> collisionVar (V2)"},
+  "vulnerabilities": {
+    "v1": [],
+    "v2": [{"id": "v001", "detector_id": "storage-collision-cross-version", "severity": "Critical", "location": {"file": "v2.sol", "line": 5}, "description": "Slot 0 ...", "extra": {}}],
+    "introduced": [{"id": "v001", "detector_id": "storage-collision-cross-version", "severity": "Critical", "location": {"file": "v2.sol", "line": 5}, "description": "Slot 0 ...", "extra": {}}],
+    "fixed": []
+  },
+  "matched_pairs": [{"change_id": "c001", "vuln_id": "v001", "scores": {"pos": 1.0, "pattern": 0.1, "semantic": 0.85, "type": 1.0, "slot": 1.0}, "confidence": 0.7825, "root_cause": "INSERT VarDecl collisionVar shifts subsequent slot layout"}],
+  "risk_level": "Critical"
+}

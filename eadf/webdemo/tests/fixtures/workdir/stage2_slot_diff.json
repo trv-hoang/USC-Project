@@ -1,0 +1,6 @@
+{
+  "v1_slots": {"0": {"name": "value", "type": "uint256", "size": 32, "offset": 0}},
+  "v2_slots": {"0": {"name": "collisionVar", "type": "uint256", "size": 32, "offset": 0}, "1": {"name": "value", "type": "uint256", "size": 32, "offset": 0}},
+  "collisions": [{"slot": 0, "v1_var": "value", "v2_var": "collisionVar", "severity": "Critical", "reason": "Slot 0 holds a privileged-shaped value"}],
+  "packed_slots_present": false
+}
